@@ -33,9 +33,9 @@
         .syncing .sync-dot { animation: pulse 1s infinite; }
         @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1); } }
         
-        /* Checkbox & Delete Button Styles */
+        /* ✅ สไตล์ Checkbox และปุ่มลบ */
         .custom-checkbox { width: 18px; height: 18px; accent-color: #ef4444; cursor: pointer; }
-        .btn-delete-selected { background: #ef4444; color: white; font-weight: bold; padding: 4px 10px; border-radius: 6px; font-size: 10px; display: none; transition: 0.2s; }
+        .btn-delete-selected { background: #ef4444; color: white; font-weight: bold; padding: 6px 12px; border-radius: 8px; font-size: 12px; display: none; transition: 0.2s; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.5); }
         .btn-delete-selected:active { transform: scale(0.95); }
     </style>
 </head>
@@ -50,13 +50,9 @@
             </svg>
             <span class="text-xs font-bold uppercase tracking-wider">Back</span>
         </a>
-
         <div class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-            <h1 class="text-lg font-bold text-green-500 tracking-wider whitespace-nowrap leading-none">
-                IRON LOG
-            </h1>
+            <h1 class="text-lg font-bold text-green-500 tracking-wider whitespace-nowrap leading-none">IRON LOG</h1>
         </div>
-
         <div id="syncStatus" class="sync-badge hidden z-20">
             <span class="sync-dot"></span> <span id="syncText">Syncing...</span>
         </div>
@@ -65,9 +61,7 @@
     <div class="p-4 max-w-lg mx-auto pb-20">
         
         <div class="mb-5 text-center pt-2">
-            <h2 id="bigDateDisplay" class="text-2xl font-bold text-white tracking-wide drop-shadow-md">
-                ...
-            </h2>
+            <h2 id="bigDateDisplay" class="text-2xl font-bold text-white tracking-wide drop-shadow-md">...</h2>
             <p class="text-[10px] text-green-400 uppercase tracking-widest opacity-80 mt-1">Today's Focus</p>
         </div>
 
@@ -99,7 +93,6 @@
             <div class="bg-slate-800/50 p-4 rounded-2xl border border-white/5 mb-4 text-center">
                 <p class="text-[10px] text-gray-500 uppercase mb-1">น้ำหนักล่าสุด</p>
                 <h2 id="currentWeightDisplay" class="text-4xl font-bold text-white mb-2">--.- <span class="text-sm text-gray-500">kg</span></h2>
-                
                 <div class="flex gap-2 mt-4">
                     <input type="number" id="newWeight" step="0.01" placeholder="กรอกน้ำหนักวันนี้..." class="input-dark text-center text-lg font-bold">
                     <button onclick="saveWeight()" class="bg-blue-600 text-white px-4 rounded-lg font-bold shadow-lg active:scale-95">บันทึก</button>
@@ -110,9 +103,9 @@
                 <canvas id="weightChart"></canvas>
             </div>
             
-            <div class="flex justify-between items-center mb-2 px-1">
+            <div class="flex justify-between items-center mb-2 px-1 h-8">
                 <p class="text-[10px] text-gray-500 font-bold uppercase">ประวัติย้อนหลัง</p>
-                <button id="btnDelSelectedWeight" onclick="deleteBulkWeight()" class="btn-delete-selected shadow-lg">🗑️ ลบที่เลือก</button>
+                <button id="btnDelSelectedWeight" onclick="deleteBulkWeight()" class="btn-delete-selected">🗑️ ลบที่เลือก</button>
             </div>
 
             <div id="weightHistory" class="space-y-1"></div>
@@ -126,15 +119,11 @@
         let chartInstance = null;
 
         window.onload = function() {
-            // 1. ตั้งค่าวันที่ตัวใหญ่ (ภาษาไทย)
             const d = new Date();
             const dateOpts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
             document.getElementById('bigDateDisplay').innerText = d.toLocaleDateString('th-TH', dateOpts);
-
-            // 2. ตั้งค่า Date Picker ของ Workout
+            
             document.getElementById('workoutDate').valueAsDate = new Date();
-
-            // 3. โหลดข้อมูล
             const cachedData = localStorage.getItem(CACHE_KEY);
             if (cachedData) {
                 try {
@@ -226,7 +215,6 @@
             showSyncStatus(false);
         }
 
-        // --- WEIGHT LOGIC (ทศนิยม 2 ตำแหน่ง + Checkbox) ---
         function renderWeight() {
             const weights = globalData.weights || [];
             if (weights.length > 0) {
@@ -273,31 +261,50 @@
             document.getElementById('btnDelSelectedWeight').style.display = 'none';
         }
 
+        // ✅ ฟังก์ชันโชว์ปุ่มเมื่อมีการติ๊กเลือก
         function updateDelBtn() {
             const checkedCount = document.querySelectorAll('.weight-cb:checked').length;
-            document.getElementById('btnDelSelectedWeight').style.display = checkedCount > 0 ? 'block' : 'none';
+            const btn = document.getElementById('btnDelSelectedWeight');
+            if (checkedCount > 0) {
+                btn.style.display = 'block';
+                btn.innerText = `🗑️ ลบ ${checkedCount} รายการ`;
+            } else {
+                btn.style.display = 'none';
+            }
         }
 
+        // ✅ ฟังก์ชันลบพร้อมกันทีเดียว (Batch Delete)
         async function deleteBulkWeight() {
             const selected = Array.from(document.querySelectorAll('.weight-cb:checked')).map(cb => parseInt(cb.value));
             if (selected.length === 0) return;
             
             const { isConfirmed } = await Swal.fire({ 
-                title: `ลบ ${selected.length} รายการ?`, 
-                text: 'การกระทำนี้ไม่สามารถเรียกคืนได้',
+                title: `ยืนยันการลบ?`, 
+                text: `คุณต้องการลบข้อมูล ${selected.length} รายการ`,
                 icon: 'warning', 
                 showCancelButton: true, 
                 confirmButtonColor: '#ef4444', 
+                confirmButtonText: 'ลบเลย',
+                cancelButtonText: 'ยกเลิก',
                 background: '#1e293b', 
                 color: '#fff' 
             });
 
             if (isConfirmed) {
                 document.getElementById('loader').style.display = 'flex';
+                
+                // Optimistic UI: ลบออกจากหน้าจอทันทีให้รู้สึกเร็ว
+                globalData.weights = globalData.weights.filter(w => !selected.includes(w.rowIndex));
+                localStorage.setItem(CACHE_KEY, JSON.stringify(globalData));
+                renderWeight();
+
+                // ส่งคำสั่งไปลบที่หลังบ้านทีเดียว
                 await fetch(CONFIG.SCRIPT_URL, { 
                     method: 'POST', 
                     body: JSON.stringify({ action: 'deleteBatchWeight', indexes: selected }) 
                 });
+
+                // โหลดข้อมูลจริงมาทับอีกทีเพื่อความชัวร์
                 fetchData(true);
                 document.getElementById('loader').style.display = 'none';
             }
