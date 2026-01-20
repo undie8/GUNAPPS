@@ -19,9 +19,7 @@
 
     <div class="flex items-center mb-8">
         <a href="index.html" class="text-gray-400 mr-4 hover:text-white transition">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
         </a>
         <h1 class="text-2xl font-bold text-white">ตั้งค่าระบบ (Settings)</h1>
     </div>
@@ -41,9 +39,16 @@
             </div>
         </div>
 
-        <button onclick="saveSettings()" id="btnSave" class="btn-save">
-            บันทึกการเปลี่ยนแปลง
-        </button>
+        <div class="bg-slate-800/50 p-6 rounded-2xl border border-red-500/20 shadow-lg">
+            <h2 class="text-sm text-red-400 font-bold uppercase mb-4 tracking-wider">ความปลอดภัย (Security)</h2>
+            <div class="mb-2">
+                <label class="block text-xs text-gray-400 mb-2 ml-1">รหัสผ่านเข้าแอป (4 หลัก)</label>
+                <input type="tel" id="pin" class="input-field text-center tracking-[0.5em] font-bold text-xl" maxlength="4" placeholder="8896">
+                <p class="text-[10px] text-gray-500 mt-2">* ใช้สำหรับล็อกหน้าจอเริ่มต้น (Default: 8896)</p>
+            </div>
+        </div>
+
+        <button onclick="saveSettings()" id="btnSave" class="btn-save">บันทึกการเปลี่ยนแปลง</button>
     </div>
 
     <div id="loader" class="fixed inset-0 bg-slate-900/90 hidden flex-col items-center justify-center z-50">
@@ -53,24 +58,25 @@
 
     <script src="config.js"></script>
     <script>
-        // โหลดข้อมูลเก่ามาแสดง
         window.onload = async function() {
             try {
+                if (typeof CONFIG === 'undefined' || !CONFIG.SCRIPT_URL) return;
                 const res = await fetch(CONFIG.SCRIPT_URL + '?get=settings');
                 const data = await res.json();
                 
                 if (data.username) document.getElementById('username').value = data.username;
                 if (data.subtitle) document.getElementById('subtitle').value = data.subtitle;
-            } catch (error) {
-                console.error("Load settings failed", error);
-            }
+                if (data.pin) document.getElementById('pin').value = data.pin;
+            } catch (error) { console.error("Load settings failed", error); }
         }
 
         async function saveSettings() {
             const username = document.getElementById('username').value;
             const subtitle = document.getElementById('subtitle').value;
+            const pin = document.getElementById('pin').value;
 
-            if(!username) return Swal.fire({icon:'warning', title:'กรุณาระบุชื่อ', background:'#1e293b', color:'#fff'});
+            if(!username) return Swal.fire({icon:'warning', title:'กรุณาระบุชื่อ'});
+            if(!pin || pin.length !== 4 || isNaN(pin)) return Swal.fire({icon:'warning', title:'รหัสผ่านต้องเป็นตัวเลข 4 หลัก'});
 
             document.getElementById('loader').style.display = 'flex';
 
@@ -81,25 +87,24 @@
                         action: 'saveSettings',
                         settings: {
                             username: username,
-                            subtitle: subtitle
+                            subtitle: subtitle,
+                            pin: pin
                         }
                     })
                 });
 
-                // บันทึกลง LocalStorage ด้วย เพื่อให้หน้า Home อัปเดตทันทีโดยไม่ต้องรอโหลดใหม่
+                // อัปเดตข้อมูลลงเครื่องทันที
                 localStorage.setItem('gbase_username', username);
                 localStorage.setItem('gbase_subtitle', subtitle);
+                localStorage.setItem('gbase_pin', pin);
 
                 await Swal.fire({
                     icon: 'success',
                     title: 'บันทึกสำเร็จ!',
                     text: 'ข้อมูลถูกอัปเดตเรียบร้อยแล้ว',
-                    background: '#1e293b',
-                    color: '#fff',
-                    confirmButtonColor: '#3b82f6'
+                    background: '#1e293b', color: '#fff', confirmButtonColor: '#3b82f6'
                 });
                 
-                // กลับไปหน้า Home
                 window.location.href = 'index.html';
 
             } catch (error) {
