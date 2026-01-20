@@ -138,7 +138,7 @@
         </div>
 
         <div id="view-history" class="hidden">
-            <div class="flex justify-center gap-2 mb-4 bg-slate-800/50 p-2 rounded-xl border border-gray-700">
+            <div class="flex justify-center gap-2 mb-3 bg-slate-800/50 p-2 rounded-xl border border-gray-700">
                 <div class="flex flex-col">
                     <label class="text-[8px] text-gray-400 pl-1">ตั้งแต่</label>
                     <input type="month" id="histStart" class="input-compact text-center h-8" onchange="renderHistoryWithFilter()">
@@ -149,6 +149,9 @@
                     <input type="month" id="histEnd" class="input-compact text-center h-8" onchange="renderHistoryWithFilter()">
                 </div>
             </div>
+
+            <div id="historySummary" class="bg-slate-800/80 p-3 rounded-xl border border-white/5 mb-4 shadow-lg grid grid-cols-2 gap-2 text-center">
+                </div>
 
             <div class="bg-slate-800/50 p-2 rounded-xl border border-gray-700 h-56 mb-3">
                 <canvas id="myChart"></canvas>
@@ -189,17 +192,14 @@
             const now = new Date();
             const currentMonth = now.toISOString().substring(0, 7);
             
-            // ตั้งค่าเดือนปัจจุบันให้ตัวเลือกบิล/รายรับ
             document.getElementById('debtMonth').value = currentMonth;
             document.getElementById('incomeMonth').value = currentMonth;
 
-            // ตั้งค่าเริ่มต้นให้ตัวกรองสถิติ (6 เดือนย้อนหลัง - เดือนปัจจุบัน)
             const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
             const startMonthStr = sixMonthsAgo.toISOString().substring(0, 7);
             document.getElementById('histStart').value = startMonthStr;
             document.getElementById('histEnd').value = currentMonth;
 
-            // Load Cache First
             const cachedData = localStorage.getItem(CACHE_KEY);
             if (cachedData) {
                 try {
@@ -304,20 +304,18 @@
                 document.getElementById('subTotalRem').innerText = totalOutstanding.toLocaleString();
                 renderQuickAdd(selMonth); renderDebtList(selMonth); renderIncomeList(incMonth); 
                 
-                // เรียกใช้ฟังก์ชันแสดงสถิติแบบมีตัวกรอง
                 renderHistoryWithFilter(); 
                 
                 renderSettingList(); checkAnyInput();
             } catch (e) { console.error("Render App Error:", e); }
         }
 
-        // ฟังก์ชันใหม่: กรองและแสดงสถิติ
         function renderHistoryWithFilter() {
             const start = document.getElementById('histStart').value;
             const end = document.getElementById('histEnd').value;
             const historyData = globalData.history || {};
             
-            // กรอง Key ตามช่วงเวลา
+            // กรอง Key
             const filteredKeys = Object.keys(historyData).filter(key => {
                 if (!start && !end) return true;
                 if (start && key < start) return false;
@@ -325,7 +323,37 @@
                 return true;
             });
 
-            // เรียงลำดับ (ล่าสุดอยู่บน สำหรับรายการ / เก่าสุดอยู่ซ้าย สำหรับกราฟ)
+            // --- คำนวณยอดรวม (Summary) ---
+            let sumInc = 0, sumBill = 0, sumRem = 0;
+            filteredKeys.forEach(key => {
+                const d = historyData[key];
+                sumInc += safeNum(d.inc);
+                sumBill += safeNum(d.bill);
+                sumRem += Math.max(0, safeNum(d.bill) - safeNum(d.paid));
+            });
+            const sumNet = sumInc - sumBill;
+
+            // แสดงผลยอดรวมในกล่อง Summary
+            document.getElementById('historySummary').innerHTML = `
+                <div>
+                    <p class="text-[8px] text-gray-500 uppercase">รายรับทั้งหมด</p>
+                    <p class="text-xs font-bold text-green-400">฿${sumInc.toLocaleString()}</p>
+                </div>
+                <div>
+                    <p class="text-[8px] text-gray-500 uppercase">ยอดบิลทั้งหมด</p>
+                    <p class="text-xs font-bold text-red-400">฿${sumBill.toLocaleString()}</p>
+                </div>
+                <div class="mt-2 pt-2 border-t border-gray-700/50">
+                    <p class="text-[8px] text-gray-500 uppercase">ยอดคงค้างรวม</p>
+                    <p class="text-xs font-bold text-orange-400">฿${sumRem.toLocaleString()}</p>
+                </div>
+                <div class="mt-2 pt-2 border-t border-gray-700/50">
+                    <p class="text-[8px] text-gray-500 uppercase">ส่วนต่างสุทธิ</p>
+                    <p class="text-xs font-bold ${sumNet >= 0 ? 'text-blue-400' : 'text-red-500'}">฿${sumNet.toLocaleString()}</p>
+                </div>
+            `;
+            // ---------------------------
+
             const listKeys = [...filteredKeys].sort((a,b) => b.localeCompare(a));
             const chartKeys = [...filteredKeys].sort();
 
