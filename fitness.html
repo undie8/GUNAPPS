@@ -24,20 +24,18 @@
         .check-circle { width: 24px; height: 24px; border: 2px solid #475569; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
         .workout-card.done .check-circle { background: #22c55e; border-color: #22c55e; }
         
-        /* Full Screen Loader */
         #loader { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
         .spinner { width: 30px; height: 30px; border: 3px solid rgba(34, 197, 94, 0.2); border-top: 3px solid #22c55e; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
 
-        /* Sync Badge */
         .sync-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; color: #94a3b8; background: rgba(30, 41, 59, 0.5); padding: 2px 8px; border-radius: 99px; border: 1px solid rgba(255, 255, 255, 0.05); }
         .sync-dot { width: 6px; height: 6px; background-color: #22c55e; border-radius: 50%; display: inline-block; }
         .syncing .sync-dot { animation: pulse 1s infinite; }
         @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1); } }
         
-        /* Delete Button in List */
-        .btn-del-weight { padding: 4px 8px; background: rgba(239, 68, 68, 0.1); color: #ef4444; border-radius: 6px; font-size: 10px; cursor: pointer; transition: 0.2s; }
-        .btn-del-weight:hover { background: #ef4444; color: white; }
+        /* Checkbox & Delete Button Styles */
+        .custom-checkbox { width: 16px; height: 16px; accent-color: #ef4444; cursor: pointer; }
+        .btn-delete-selected { background: #ef4444; color: white; font-weight: bold; padding: 4px 10px; border-radius: 6px; font-size: 10px; display: none; }
     </style>
 </head>
 <body>
@@ -95,7 +93,11 @@
                 <canvas id="weightChart"></canvas>
             </div>
             
-            <div class="text-[10px] text-gray-500 uppercase font-bold mb-2 ml-1">ประวัติย้อนหลัง</div>
+            <div class="flex justify-between items-center mb-2 px-1">
+                <p class="text-[10px] text-gray-500 font-bold uppercase">ประวัติย้อนหลัง</p>
+                <button id="btnDelSelectedWeight" onclick="deleteBulkWeight()" class="btn-delete-selected">🗑️ ลบที่เลือก</button>
+            </div>
+
             <div id="weightHistory" class="space-y-1"></div>
         </div>
     </div>
@@ -199,16 +201,13 @@
             showSyncStatus(false);
         }
 
-      // --- WEIGHT LOGIC UPDATED (2 Decimal Places) ---
         function renderWeight() {
             const weights = globalData.weights || [];
             if (weights.length > 0) {
                 const last = weights[weights.length - 1];
-                // ✅ จุดที่ 1: ตัวเลขใหญ่ (ล่าสุด)
                 document.getElementById('currentWeightDisplay').innerHTML = `${parseFloat(last.weight).toFixed(2)} <span class="text-sm text-gray-500">kg</span>`;
             }
 
-            // Graph
             const ctx = document.getElementById('weightChart').getContext('2d');
             const recentWeights = weights.slice(-15);
             const labels = recentWeights.map(w => { const d = new Date(w.date); return `${d.getDate()}/${d.getMonth()+1}`; });
@@ -216,9 +215,7 @@
             if (chartInstance) chartInstance.destroy();
             chartInstance = new Chart(ctx, { type: 'line', data: { labels: labels, datasets: [{ label: 'Weight (kg)', data: dataPoints, borderColor: '#22c55e', backgroundColor: 'rgba(34, 197, 94, 0.1)', tension: 0.4, fill: true, pointRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8' } } } } });
 
-            // History List with Delete & Diff
             const historyDiv = document.getElementById('weightHistory');
-            
             let html = '';
             for (let i = weights.length - 1; i >= 0; i--) {
                 const w = weights[i];
@@ -228,7 +225,6 @@
                 if (i > 0) {
                     const prev = weights[i-1].weight;
                     const diff = w.weight - prev;
-                    // ✅ จุดที่ 2: ส่วนต่าง (Diff)
                     if (diff > 0) diffHtml = `<span class="text-red-400 text-[10px] mr-2">▲ +${diff.toFixed(2)}</span>`;
                     else if (diff < 0) diffHtml = `<span class="text-green-400 text-[10px] mr-2">▼ ${diff.toFixed(2)}</span>`;
                     else diffHtml = `<span class="text-gray-500 text-[10px] mr-2">-</span>`;
@@ -240,12 +236,49 @@
                         <div class="flex items-center">
                             ${diffHtml}
                             <span class="font-bold text-white w-16 text-right">${parseFloat(w.weight).toFixed(2)} kg</span>
-                            <button onclick="deleteWeight(${w.rowIndex}, ${w.weight})" class="btn-del-weight ml-3">🗑️</button>
+                            <div class="ml-3 flex items-center">
+                                <input type="checkbox" class="weight-cb custom-checkbox" value="${w.rowIndex}" onchange="updateDelBtn()">
+                            </div>
                         </div>
                     </div>
                 `;
             }
             historyDiv.innerHTML = html;
+            // ซ่อนปุ่มลบเมื่อโหลดใหม่
+            document.getElementById('btnDelSelectedWeight').style.display = 'none';
+        }
+
+        // ✅ ฟังก์ชันแสดง/ซ่อนปุ่มลบ
+        function updateDelBtn() {
+            const checkedCount = document.querySelectorAll('.weight-cb:checked').length;
+            document.getElementById('btnDelSelectedWeight').style.display = checkedCount > 0 ? 'block' : 'none';
+        }
+
+        // ✅ ฟังก์ชันลบรายการที่เลือก (Batch Delete)
+        async function deleteBulkWeight() {
+            const selected = Array.from(document.querySelectorAll('.weight-cb:checked')).map(cb => parseInt(cb.value));
+            if (selected.length === 0) return;
+            
+            const { isConfirmed } = await Swal.fire({ 
+                title: `ลบ ${selected.length} รายการ?`, 
+                text: 'การกระทำนี้ไม่สามารถเรียกคืนได้',
+                icon: 'warning', 
+                showCancelButton: true, 
+                confirmButtonColor: '#ef4444', 
+                background: '#1e293b', 
+                color: '#fff' 
+            });
+
+            if (isConfirmed) {
+                document.getElementById('loader').style.display = 'flex';
+                // ส่งรายการไปลบที่หลังบ้าน
+                await fetch(CONFIG.SCRIPT_URL, { 
+                    method: 'POST', 
+                    body: JSON.stringify({ action: 'deleteBatchWeight', indexes: selected }) 
+                });
+                fetchData(true);
+                document.getElementById('loader').style.display = 'none';
+            }
         }
 
         async function saveWeight() {
@@ -256,16 +289,6 @@
             document.getElementById('newWeight').value = '';
             fetchData(true);
             document.getElementById('loader').style.display = 'none';
-        }
-
-        async function deleteWeight(idx, val) {
-            const { isConfirmed } = await Swal.fire({ title: 'ลบรายการ?', text: `น้ำหนัก ${val} kg`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', background: '#1e293b', color: '#fff' });
-            if (isConfirmed) {
-                document.getElementById('loader').style.display = 'flex';
-                await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'deleteWeight', rowIndex: idx }) });
-                fetchData(true);
-                document.getElementById('loader').style.display = 'none';
-            }
         }
 
         function switchTab(t) {
