@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Money Manager - GBase</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body { font-family: 'Kanit', sans-serif; background-color: #0f172a; color: #e2e8f0; }
+        .input-field { background: #1e293b; border: 1px solid #334155; border-radius: 0.75rem; width: 100%; padding: 0.75rem; color: white; outline: none; }
+        .input-field:focus { border-color: #f97316; ring: 1px ring #f97316; }
+        .btn-submit { background: linear-gradient(135deg, #f97316, #ea580c); color: white; font-weight: bold; padding: 1rem; border-radius: 1rem; width: 100%; transition: all 0.2s; }
+        .btn-submit:active { transform: scale(0.98); opacity: 0.9; }
+    </style>
+</head>
+<body class="p-5 max-w-lg mx-auto">
+
+    <div class="flex items-center mb-8">
+        <a href="index.html" class="text-gray-400 mr-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+        </a>
+        <h1 class="text-2xl font-bold text-white">บันทึกรายจ่าย</h1>
+    </div>
+
+    <form id="moneyForm" class="space-y-6">
+        <div>
+            <label class="block text-sm text-gray-400 mb-2 font-light">รายการ</label>
+            <input type="text" id="description" name="description" class="input-field" placeholder="เช่น ค่าข้าว, ค่าน้ำ" required>
+        </div>
+
+        <div>
+            <label class="block text-sm text-gray-400 mb-2 font-light">จำนวนเงิน (บาท)</label>
+            <input type="number" id="amount" name="amount" step="0.01" class="input-field" placeholder="0.00" required>
+        </div>
+
+        <div>
+            <label class="block text-sm text-gray-400 mb-2 font-light">หมวดหมู่</label>
+            <select id="category" name="category" class="input-field">
+                <option value="Food">อาหาร</option>
+                <option value="Travel">เดินทาง</option>
+                <option value="Bills">บิลต่างๆ</option>
+                <option value="Other">อื่นๆ</option>
+            </select>
+        </div>
+
+        <button type="submit" id="submitBtn" class="btn-submit mt-4 shadow-lg shadow-orange-500/20">
+            บันทึกลง Google Sheets
+        </button>
+    </form>
+
+    <div id="loading" class="hidden mt-6 text-center">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-500 mb-2"></div>
+        <p class="text-xs text-gray-400">กำลังบันทึกข้อมูล...</p>
+    </div>
+
+    <script>
+        // URL ของ Google Apps Script ของคุณ
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyO-6goAAbOz8cOWP5aWHBNx51WI4B6wmh3d_06j5-oNN8xjkSO6bBALVxqXcoULBRC/exec";
+
+        const form = document.getElementById('moneyForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const loading = document.getElementById('loading');
+
+        form.addEventListener('submit', e => {
+            e.preventDefault();
+            
+            // แสดงสถานะโหลด
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-50');
+            loading.classList.remove('hidden');
+
+            const formData = new FormData(form);
+            const data = {};
+            formData.forEach((value, key) => data[key] = value);
+            
+            // เพิ่มวันที่ปัจจุบัน
+            data.date = new Date().toLocaleString('th-TH');
+
+            // ส่งข้อมูลไปที่ Google Apps Script แบบ POST
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors', // สำคัญมากสำหรับการส่งจาก Domain อื่นไปหา GAS
+                cache: 'no-cache',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                Swal.fire({
+                    title: 'สำเร็จ!',
+                    text: 'บันทึกข้อมูลเรียบร้อยแล้ว',
+                    icon: 'success',
+                    confirmButtonColor: '#f97316',
+                    background: '#1e293b',
+                    color: '#fff'
+                });
+                form.reset();
+            })
+            .catch(error => {
+                console.error('Error!', error.message);
+                Swal.fire({
+                    title: 'เกิดข้อผิดพลาด',
+                    text: 'ไม่สามารถติดต่อ Google Sheets ได้',
+                    icon: 'error'
+                });
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-50');
+                loading.classList.add('hidden');
+            });
+        });
+    </script>
+</body>
+</html>
