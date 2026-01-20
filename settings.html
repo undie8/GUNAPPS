@@ -2,18 +2,18 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <script>
-        // ถ้าไม่มีบัตรผ่าน (ยังไม่ใส่รหัสที่หน้า index) ให้ดีดกลับไปหน้า index เดี๋ยวนี้
-        if (sessionStorage.getItem('gbase_unlocked') !== 'true') {
-            window.location.href = 'index.html';
-        }
-    </script>
-    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>System Settings</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <script>
+        if (sessionStorage.getItem('gbase_unlocked') !== 'true') {
+            window.location.href = 'index.html';
+        }
+    </script>
+
     <style>
         body { font-family: 'Kanit', sans-serif; background-color: #0f172a; color: #e2e8f0; }
         .input-field { background: #1e293b; border: 1px solid #334155; border-radius: 0.75rem; width: 100%; padding: 0.75rem; color: white; outline: none; transition: 0.2s; }
@@ -37,12 +37,12 @@
             
             <div class="mb-4">
                 <label class="block text-xs text-gray-400 mb-2 ml-1">ชื่อที่แสดง (Display Name)</label>
-                <input type="text" id="username" class="input-field" placeholder="เช่น คุณกัญจน์">
+                <input type="text" id="username" class="input-field" placeholder="กำลังโหลด...">
             </div>
 
             <div class="mb-2">
                 <label class="block text-xs text-gray-400 mb-2 ml-1">คำโปรยระบบ (Subtitle)</label>
-                <input type="text" id="subtitle" class="input-field" placeholder="เช่น Command Center">
+                <input type="text" id="subtitle" class="input-field" placeholder="กำลังโหลด...">
             </div>
         </div>
 
@@ -50,8 +50,8 @@
             <h2 class="text-sm text-red-400 font-bold uppercase mb-4 tracking-wider">ความปลอดภัย (Security)</h2>
             <div class="mb-2">
                 <label class="block text-xs text-gray-400 mb-2 ml-1">รหัสผ่านเข้าแอป (4 หลัก)</label>
-                <input type="tel" id="pin" class="input-field text-center tracking-[0.5em] font-bold text-xl" maxlength="4" placeholder="8896">
-                <p class="text-[10px] text-gray-500 mt-2">* ใช้สำหรับล็อกหน้าจอเริ่มต้น (Default: 8896)</p>
+                <input type="tel" id="pin" class="input-field text-center tracking-[0.5em] font-bold text-xl" maxlength="4" placeholder="....">
+                <p class="text-[10px] text-gray-500 mt-2">* ใช้สำหรับล็อกหน้าจอเริ่มต้น</p>
             </div>
         </div>
 
@@ -66,15 +66,33 @@
     <script src="config.js"></script>
     <script>
         window.onload = async function() {
+            // 1. ดึงข้อมูลจากเครื่องมาโชว์ทันที (ผู้ใช้จะเห็นข้อมูลทันทีโดยไม่ต้องรอ)
+            const localName = localStorage.getItem('gbase_username');
+            const localSub = localStorage.getItem('gbase_subtitle');
+            const localPin = localStorage.getItem('gbase_pin');
+            
+            if (localName) document.getElementById('username').value = localName;
+            if (localSub) document.getElementById('subtitle').value = localSub;
+            if (localPin) document.getElementById('pin').value = localPin;
+
+            // 2. แอบโหลดข้อมูลล่าสุดจาก Google Sheets มาอัปเดต (เผื่อมีการแก้ไขจากที่อื่น)
             try {
                 if (typeof CONFIG === 'undefined' || !CONFIG.SCRIPT_URL) return;
                 const res = await fetch(CONFIG.SCRIPT_URL + '?get=settings');
                 const data = await res.json();
                 
+                // อัปเดตหน้าจอด้วยข้อมูลจริงจาก Server
                 if (data.username) document.getElementById('username').value = data.username;
                 if (data.subtitle) document.getElementById('subtitle').value = data.subtitle;
                 if (data.pin) document.getElementById('pin').value = data.pin;
-            } catch (error) { console.error("Load settings failed", error); }
+                
+                // อัปเดตข้อมูลลงเครื่องให้เป็นปัจจุบัน
+                localStorage.setItem('gbase_username', data.username);
+                localStorage.setItem('gbase_subtitle', data.subtitle);
+                localStorage.setItem('gbase_pin', data.pin);
+            } catch (error) { 
+                console.log("Using cached settings due to network delay"); 
+            }
         }
 
         async function saveSettings() {
@@ -100,7 +118,7 @@
                     })
                 });
 
-                // อัปเดตข้อมูลลงเครื่องทันที
+                // อัปเดตข้อมูลลงเครื่องทันทีที่กดบันทึก
                 localStorage.setItem('gbase_username', username);
                 localStorage.setItem('gbase_subtitle', subtitle);
                 localStorage.setItem('gbase_pin', pin);
