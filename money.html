@@ -204,30 +204,42 @@
             try {
                 const selMonth = document.getElementById('debtMonth').value;
                 const incMonth = document.getElementById('incomeMonth').value;
+                
                 document.getElementById('displayMonthLabel').innerText = formatThaiMonth(selMonth);
                 document.getElementById('displayMonthLabelIncome').innerText = formatThaiMonth(incMonth);
-                let totalInc = 0; (globalData.income || []).forEach(i => { totalInc += safeNum(i.amount); });
+                
+                let totalInc = 0; 
+                (globalData.income || []).forEach(i => { totalInc += safeNum(i.amount); });
+                
                 let totalBillThisMonth = 0, totalPaid = 0, totalOutstanding = 0;
                 const transactions = (globalData.transactions || []);
+                
                 transactions.forEach(t => {
-                    // Filter แสดงเฉพาะเดือนที่เลือก (ถ้าต้องการ) หรือแสดงหมด
-                    // ในที่นี้สมมติว่า Backend ส่งมาหมด แต่เรากรองแสดงผลเฉพาะเดือนที่เกี่ยวข้องได้ถ้าต้องการ
-                    const bill = safeNum(t.total);
-                    const paid = safeNum(t.paid);
-                    if (t.month === selMonth || t.payMonth === selMonth) { // กรองคร่าวๆ
+                    // *** แก้ไข: เช็คแค่ t.month เท่านั้น (เดือนบิล) ***
+                    if (t.month === selMonth) { 
+                        const bill = safeNum(t.total);
+                        const paid = safeNum(t.paid);
                         totalBillThisMonth += bill;
                         totalPaid += paid;
                         if (bill > paid) { totalOutstanding += (bill - paid); }
                     }
                 });
+                
                 let totalCardDebt = 0; (globalData.cards || []).forEach(c => { totalCardDebt += safeNum(c.used); });
+                
                 document.getElementById('headerInc').innerText = `฿${totalInc.toLocaleString()}`;
                 document.getElementById('headerAccumDebt').innerText = `฿${totalCardDebt.toLocaleString()}`;
                 document.getElementById('headerNet').innerText = `฿${totalOutstanding.toLocaleString()}`;
                 document.getElementById('subTotalAll').innerText = totalBillThisMonth.toLocaleString();
                 document.getElementById('subTotalPaid').innerText = totalPaid.toLocaleString();
                 document.getElementById('subTotalRem').innerText = totalOutstanding.toLocaleString();
-                renderQuickAdd(selMonth); renderDebtList(selMonth); renderIncomeList(incMonth); renderHistoryList(); renderSettingList(); checkAnyInput();
+                
+                renderQuickAdd(selMonth); 
+                renderDebtList(selMonth); 
+                renderIncomeList(incMonth); 
+                renderHistoryList(); 
+                renderSettingList(); 
+                checkAnyInput();
             } catch (e) { console.error("Render App Error:", e); }
         }
 
@@ -311,17 +323,46 @@
         }
         function renderDebtList(month) {
             try {
-                const list = (globalData.transactions || []).filter(t => t.month === month || t.payMonth === month);
+                // *** แก้ไข: กรองเอาเฉพาะเดือนบิลที่เลือกเท่านั้น (ไม่สน PayMonth) ***
+                const list = (globalData.transactions || []).filter(t => t.month === month);
+                
                 const isPaidCheck = (t) => { const total = parseFloat(safeNum(t.total).toFixed(2)); const paid = parseFloat(safeNum(t.paid).toFixed(2)); return paid >= total; };
                 const unpaidList = list.filter(t => !isPaidCheck(t));
                 const paidList = list.filter(t => isPaidCheck(t));
+                
+                // เรียงลำดับตามวันที่กำหนดจ่าย (DueDate)
                 unpaidList.sort((a, b) => { const da = parseInt(safeStr(a.dueDate).replace(/\D/g,'')||99); const db = parseInt(safeStr(b.dueDate).replace(/\D/g,'')||99); return da - db; });
+                
                 document.getElementById('debtList').innerHTML = [...unpaidList, ...paidList].map(t => {
-                    const total = safeNum(t.total); let paid = safeNum(t.paid); const isPaid = (paid >= parseFloat(total.toFixed(2)));
+                    const total = safeNum(t.total); 
+                    let paid = safeNum(t.paid); 
+                    const isPaid = (paid >= parseFloat(total.toFixed(2)));
                     let dayDisplay = safeStr(t.dueDate).replace(/[^0-9]/g, '').padStart(2,'0');
+                    
+                    // แสดงให้เห็นชัดๆ ว่าจ่ายเดือนไหน (ถ้าเป็น Next month จะได้ไม่งง)
+                    let dueLabel = `จ่ายวันที่ ${dayDisplay}`;
+                    if (t.payMonth && t.payMonth !== t.month) {
+                        // ถ้าเดือนจ่าย ไม่ตรงกับเดือนบิล ให้แสดงเดือนกำกับด้วย
+                        const [py, pm] = t.payMonth.split('-');
+                        dueLabel = `จ่าย ${dayDisplay}/${pm}`; 
+                    }
+
                     return `<div class="card-debt mb-1 ${isPaid ? 'paid' : ''} shadow-md flex justify-between items-center">
-                        <div class="flex-1"><div class="flex justify-between items-center mb-0.5"><span class="text-[10px] font-bold text-white uppercase truncate pr-2">${safeEsc(t.card)}</span><span class="text-[8px] text-gray-400 italic shrink-0">จ่ายภายใน: ${dayDisplay}</span></div><div class="flex items-baseline gap-2"><p class="text-sm font-bold ${isPaid ? 'line-through opacity-50 text-gray-400' : 'text-red-500'}">฿${total.toLocaleString()}</p><div class="flex flex-col items-start">${paid > 0 ? `<p class="text-[8px] text-green-300 font-bold">Paid: ฿${paid.toLocaleString()}</p>` : ''}</div></div></div>
-                        <div class="flex items-center gap-3 ml-3"><button onclick="payPrompt(${t.rowIndex},'${total}','${paid}','${safeEsc(t.card)}',${isPaid})" class="${isPaid ? 'bg-blue-600' : 'bg-green-600'} text-white ${isPaid ? 'w-6 h-6' : 'px-3 py-1 text-[11px]'} flex items-center justify-center rounded-lg font-bold shadow-sm">${isPaid ? '+' : 'จ่าย'}</button><input type="checkbox" class="debt-cb custom-checkbox" value="${t.rowIndex}" onchange="updateDelBtn('debt-cb', 'btnDelSelectedDebt')"></div></div>`;
+                        <div class="flex-1">
+                            <div class="flex justify-between items-center mb-0.5">
+                                <span class="text-[10px] font-bold text-white uppercase truncate pr-2">${safeEsc(t.card)}</span>
+                                <span class="text-[8px] text-gray-400 italic shrink-0">${dueLabel}</span>
+                            </div>
+                            <div class="flex items-baseline gap-2">
+                                <p class="text-sm font-bold ${isPaid ? 'line-through opacity-50 text-gray-400' : 'text-red-500'}">฿${total.toLocaleString()}</p>
+                                <div class="flex flex-col items-start">${paid > 0 ? `<p class="text-[8px] text-green-300 font-bold">Paid: ฿${paid.toLocaleString()}</p>` : ''}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 ml-3">
+                            <button onclick="payPrompt(${t.rowIndex},'${total}','${paid}','${safeEsc(t.card)}',${isPaid})" class="${isPaid ? 'bg-blue-600' : 'bg-green-600'} text-white ${isPaid ? 'w-6 h-6' : 'px-3 py-1 text-[11px]'} flex items-center justify-center rounded-lg font-bold shadow-sm">${isPaid ? '+' : 'จ่าย'}</button>
+                            <input type="checkbox" class="debt-cb custom-checkbox" value="${t.rowIndex}" onchange="updateDelBtn('debt-cb', 'btnDelSelectedDebt')">
+                        </div>
+                    </div>`;
                 }).join('');
             } catch (e) { console.error("renderDebtList Error:", e); }
         }
