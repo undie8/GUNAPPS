@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>System Settings</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body { font-family: 'Kanit', sans-serif; background-color: #0f172a; color: #e2e8f0; }
+        .input-field { background: #1e293b; border: 1px solid #334155; border-radius: 0.75rem; width: 100%; padding: 0.75rem; color: white; outline: none; transition: 0.2s; }
+        .input-field:focus { border-color: #3b82f6; ring: 1px ring #3b82f6; }
+        .btn-save { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; font-weight: bold; padding: 1rem; border-radius: 1rem; width: 100%; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.5); }
+        .btn-save:active { transform: scale(0.98); }
+    </style>
+</head>
+<body class="p-5 max-w-lg mx-auto">
+
+    <div class="flex items-center mb-8">
+        <a href="index.html" class="text-gray-400 mr-4 hover:text-white transition">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+        </a>
+        <h1 class="text-2xl font-bold text-white">ตั้งค่าระบบ (Settings)</h1>
+    </div>
+
+    <div class="space-y-6">
+        <div class="bg-slate-800/50 p-6 rounded-2xl border border-white/5 shadow-lg">
+            <h2 class="text-sm text-gray-400 font-bold uppercase mb-4 tracking-wider">ข้อมูลส่วนตัว</h2>
+            
+            <div class="mb-4">
+                <label class="block text-xs text-gray-400 mb-2 ml-1">ชื่อที่แสดง (Display Name)</label>
+                <input type="text" id="username" class="input-field" placeholder="เช่น คุณกัญจน์">
+            </div>
+
+            <div class="mb-2">
+                <label class="block text-xs text-gray-400 mb-2 ml-1">คำโปรยระบบ (Subtitle)</label>
+                <input type="text" id="subtitle" class="input-field" placeholder="เช่น Command Center">
+            </div>
+        </div>
+
+        <button onclick="saveSettings()" id="btnSave" class="btn-save">
+            บันทึกการเปลี่ยนแปลง
+        </button>
+    </div>
+
+    <div id="loader" class="fixed inset-0 bg-slate-900/90 hidden flex-col items-center justify-center z-50">
+        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-white mb-3"></div>
+        <p class="text-white text-sm">กำลังบันทึก...</p>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        // โหลดข้อมูลเก่ามาแสดง
+        window.onload = async function() {
+            try {
+                const res = await fetch(CONFIG.SCRIPT_URL + '?get=settings');
+                const data = await res.json();
+                
+                if (data.username) document.getElementById('username').value = data.username;
+                if (data.subtitle) document.getElementById('subtitle').value = data.subtitle;
+            } catch (error) {
+                console.error("Load settings failed", error);
+            }
+        }
+
+        async function saveSettings() {
+            const username = document.getElementById('username').value;
+            const subtitle = document.getElementById('subtitle').value;
+
+            if(!username) return Swal.fire({icon:'warning', title:'กรุณาระบุชื่อ', background:'#1e293b', color:'#fff'});
+
+            document.getElementById('loader').style.display = 'flex';
+
+            try {
+                await fetch(CONFIG.SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'saveSettings',
+                        settings: {
+                            username: username,
+                            subtitle: subtitle
+                        }
+                    })
+                });
+
+                // บันทึกลง LocalStorage ด้วย เพื่อให้หน้า Home อัปเดตทันทีโดยไม่ต้องรอโหลดใหม่
+                localStorage.setItem('gbase_username', username);
+                localStorage.setItem('gbase_subtitle', subtitle);
+
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'บันทึกสำเร็จ!',
+                    text: 'ข้อมูลถูกอัปเดตเรียบร้อยแล้ว',
+                    background: '#1e293b',
+                    color: '#fff',
+                    confirmButtonColor: '#3b82f6'
+                });
+                
+                // กลับไปหน้า Home
+                window.location.href = 'index.html';
+
+            } catch (error) {
+                document.getElementById('loader').style.display = 'none';
+                Swal.fire({icon:'error', title:'เกิดข้อผิดพลาด', text: error.message});
+            }
+        }
+    </script>
+</body>
+</html>
