@@ -52,8 +52,7 @@
             <div class="numpad-btn text-red-400" onclick="clearPin()">⌫</div>
         </div>
         
-        <p class="mt-8 text-[9px] text-gray-600">DEFAULT PIN: 8896</p>
-    </div>
+        </div>
 
     <header class="text-center mt-8 mb-10">
         <h1 class="text-4xl font-bold gradient-text tracking-tight">GBASE</h1>
@@ -97,7 +96,6 @@
     <script>
         let pinBuffer = "";
         
-        // ฟังก์ชันรับค่า PIN
         function addPin(num) {
             if (pinBuffer.length < 4) {
                 pinBuffer += num;
@@ -122,6 +120,7 @@
         }
 
         function checkPin() {
+            // ดึงรหัสที่ตั้งค่าไว้ (ถ้าไม่มีใช้ 8896 เป็นค่าเริ่มต้นภายในโค้ด แต่ไม่โชว์บอก)
             const storedPin = localStorage.getItem('gbase_pin') || '8896';
             if (pinBuffer === storedPin) {
                 sessionStorage.setItem('gbase_unlocked', 'true');
@@ -143,17 +142,13 @@
             location.reload();
         }
 
-        // *** ส่วนที่เพิ่ม: ดักจับการกดแป้นพิมพ์ ***
         document.addEventListener('keydown', (e) => {
-            // ถ้าหน้าจอ PIN ไม่แสดงอยู่ ก็ไม่ต้องทำอะไร (ป้องกันการกดตอนใช้งานแอป)
             const overlay = document.getElementById('pin-overlay');
             if (!overlay || overlay.style.display === 'none') return;
 
-            // ตรวจสอบว่าเป็นตัวเลข 0-9
             if (e.key >= '0' && e.key <= '9') {
                 addPin(e.key);
             }
-            // ตรวจสอบปุ่ม Backspace
             else if (e.key === 'Backspace') {
                 clearPin();
             }
