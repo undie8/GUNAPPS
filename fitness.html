@@ -34,26 +34,43 @@
         @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1); } }
         
         /* Checkbox & Delete Button Styles */
-        .custom-checkbox { width: 16px; height: 16px; accent-color: #ef4444; cursor: pointer; }
-        .btn-delete-selected { background: #ef4444; color: white; font-weight: bold; padding: 4px 10px; border-radius: 6px; font-size: 10px; display: none; }
+        .custom-checkbox { width: 18px; height: 18px; accent-color: #ef4444; cursor: pointer; }
+        .btn-delete-selected { background: #ef4444; color: white; font-weight: bold; padding: 4px 10px; border-radius: 6px; font-size: 10px; display: none; transition: 0.2s; }
+        .btn-delete-selected:active { transform: scale(0.95); }
     </style>
 </head>
 <body>
 
     <div id="loader"><div class="spinner mb-2"></div><p class="text-green-400 text-xs">Loading...</p></div>
 
-    <div class="bg-slate-900 px-4 py-3 flex items-center justify-between border-b border-gray-800 sticky top-0 z-10">
-        <a href="index.html" class="flex items-center text-gray-400 hover:text-white">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-            <span class="text-xs font-bold uppercase">Back</span>
+    <div class="bg-slate-900 px-4 py-3 flex items-center justify-between border-b border-gray-800 sticky top-0 z-20 relative h-[60px]">
+        <a href="index.html" class="flex items-center text-gray-400 hover:text-white z-20">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            <span class="text-xs font-bold uppercase tracking-wider">Back</span>
         </a>
-        <h1 class="text-lg font-bold text-green-500 tracking-wider">IRON LOG</h1>
-        <div id="syncStatus" class="sync-badge hidden">
+
+        <div class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
+            <h1 class="text-lg font-bold text-green-500 tracking-wider whitespace-nowrap leading-none">
+                IRON LOG
+            </h1>
+        </div>
+
+        <div id="syncStatus" class="sync-badge hidden z-20">
             <span class="sync-dot"></span> <span id="syncText">Syncing...</span>
         </div>
     </div>
 
     <div class="p-4 max-w-lg mx-auto pb-20">
+        
+        <div class="mb-5 text-center pt-2">
+            <h2 id="bigDateDisplay" class="text-2xl font-bold text-white tracking-wide drop-shadow-md">
+                ...
+            </h2>
+            <p class="text-[10px] text-green-400 uppercase tracking-widest opacity-80 mt-1">Today's Focus</p>
+        </div>
+
         <div class="flex bg-slate-800/50 rounded-lg p-1 mb-4">
             <button onclick="switchTab('workout')" id="tab-workout" class="tab-btn active flex-1 py-2 text-xs font-bold rounded-md">🏋️ ออกกำลังกาย</button>
             <button onclick="switchTab('weight')" id="tab-weight" class="tab-btn flex-1 py-2 text-xs font-bold rounded-md">⚖️ น้ำหนัก</button>
@@ -84,7 +101,7 @@
                 <h2 id="currentWeightDisplay" class="text-4xl font-bold text-white mb-2">--.- <span class="text-sm text-gray-500">kg</span></h2>
                 
                 <div class="flex gap-2 mt-4">
-                    <input type="number" id="newWeight" step="0.1" placeholder="กรอกน้ำหนักวันนี้..." class="input-dark text-center text-lg font-bold">
+                    <input type="number" id="newWeight" step="0.01" placeholder="กรอกน้ำหนักวันนี้..." class="input-dark text-center text-lg font-bold">
                     <button onclick="saveWeight()" class="bg-blue-600 text-white px-4 rounded-lg font-bold shadow-lg active:scale-95">บันทึก</button>
                 </div>
             </div>
@@ -95,7 +112,7 @@
             
             <div class="flex justify-between items-center mb-2 px-1">
                 <p class="text-[10px] text-gray-500 font-bold uppercase">ประวัติย้อนหลัง</p>
-                <button id="btnDelSelectedWeight" onclick="deleteBulkWeight()" class="btn-delete-selected">🗑️ ลบที่เลือก</button>
+                <button id="btnDelSelectedWeight" onclick="deleteBulkWeight()" class="btn-delete-selected shadow-lg">🗑️ ลบที่เลือก</button>
             </div>
 
             <div id="weightHistory" class="space-y-1"></div>
@@ -109,7 +126,15 @@
         let chartInstance = null;
 
         window.onload = function() {
+            // 1. ตั้งค่าวันที่ตัวใหญ่ (ภาษาไทย)
+            const d = new Date();
+            const dateOpts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+            document.getElementById('bigDateDisplay').innerText = d.toLocaleDateString('th-TH', dateOpts);
+
+            // 2. ตั้งค่า Date Picker ของ Workout
             document.getElementById('workoutDate').valueAsDate = new Date();
+
+            // 3. โหลดข้อมูล
             const cachedData = localStorage.getItem(CACHE_KEY);
             if (cachedData) {
                 try {
@@ -201,6 +226,7 @@
             showSyncStatus(false);
         }
 
+        // --- WEIGHT LOGIC (ทศนิยม 2 ตำแหน่ง + Checkbox) ---
         function renderWeight() {
             const weights = globalData.weights || [];
             if (weights.length > 0) {
@@ -244,17 +270,14 @@
                 `;
             }
             historyDiv.innerHTML = html;
-            // ซ่อนปุ่มลบเมื่อโหลดใหม่
             document.getElementById('btnDelSelectedWeight').style.display = 'none';
         }
 
-        // ✅ ฟังก์ชันแสดง/ซ่อนปุ่มลบ
         function updateDelBtn() {
             const checkedCount = document.querySelectorAll('.weight-cb:checked').length;
             document.getElementById('btnDelSelectedWeight').style.display = checkedCount > 0 ? 'block' : 'none';
         }
 
-        // ✅ ฟังก์ชันลบรายการที่เลือก (Batch Delete)
         async function deleteBulkWeight() {
             const selected = Array.from(document.querySelectorAll('.weight-cb:checked')).map(cb => parseInt(cb.value));
             if (selected.length === 0) return;
@@ -271,7 +294,6 @@
 
             if (isConfirmed) {
                 document.getElementById('loader').style.display = 'flex';
-                // ส่งรายการไปลบที่หลังบ้าน
                 await fetch(CONFIG.SCRIPT_URL, { 
                     method: 'POST', 
                     body: JSON.stringify({ action: 'deleteBatchWeight', indexes: selected }) 
