@@ -199,12 +199,13 @@
             showSyncStatus(false);
         }
 
-        // --- WEIGHT LOGIC UPDATED ---
+      // --- WEIGHT LOGIC UPDATED (2 Decimal Places) ---
         function renderWeight() {
             const weights = globalData.weights || [];
             if (weights.length > 0) {
                 const last = weights[weights.length - 1];
-                document.getElementById('currentWeightDisplay').innerHTML = `${parseFloat(last.weight).toFixed(1)} <span class="text-sm text-gray-500">kg</span>`;
+                // ✅ จุดที่ 1: ตัวเลขใหญ่ (ล่าสุด)
+                document.getElementById('currentWeightDisplay').innerHTML = `${parseFloat(last.weight).toFixed(2)} <span class="text-sm text-gray-500">kg</span>`;
             }
 
             // Graph
@@ -218,19 +219,18 @@
             // History List with Delete & Diff
             const historyDiv = document.getElementById('weightHistory');
             
-            // ใช้ Reverse Loop เพื่อเทียบกับข้อมูล "ก่อนหน้า"
             let html = '';
             for (let i = weights.length - 1; i >= 0; i--) {
                 const w = weights[i];
                 const d = new Date(w.date);
                 
-                // คำนวณส่วนต่าง (Diff) เทียบกับตัวก่อนหน้า (i-1)
                 let diffHtml = '';
                 if (i > 0) {
                     const prev = weights[i-1].weight;
                     const diff = w.weight - prev;
-                    if (diff > 0) diffHtml = `<span class="text-red-400 text-[10px] mr-2">▲ +${diff.toFixed(1)}</span>`;
-                    else if (diff < 0) diffHtml = `<span class="text-green-400 text-[10px] mr-2">▼ ${diff.toFixed(1)}</span>`;
+                    // ✅ จุดที่ 2: ส่วนต่าง (Diff)
+                    if (diff > 0) diffHtml = `<span class="text-red-400 text-[10px] mr-2">▲ +${diff.toFixed(2)}</span>`;
+                    else if (diff < 0) diffHtml = `<span class="text-green-400 text-[10px] mr-2">▼ ${diff.toFixed(2)}</span>`;
                     else diffHtml = `<span class="text-gray-500 text-[10px] mr-2">-</span>`;
                 }
 
@@ -239,7 +239,7 @@
                         <span class="text-gray-400 w-20">${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()+543}</span>
                         <div class="flex items-center">
                             ${diffHtml}
-                            <span class="font-bold text-white w-14 text-right">${parseFloat(w.weight).toFixed(1)} kg</span>
+                            <span class="font-bold text-white w-16 text-right">${parseFloat(w.weight).toFixed(2)} kg</span>
                             <button onclick="deleteWeight(${w.rowIndex}, ${w.weight})" class="btn-del-weight ml-3">🗑️</button>
                         </div>
                     </div>
