@@ -3,7 +3,7 @@
 
 const CONFIG = {
     // วาง URL ที่ได้จากการ Deploy Google Apps Script ล่าสุดที่นี่
-    SCRIPT_URL: "https://script.google.com/macros/s/AKfycbwlqHWTmyPYNDi20Xr5UVsch38jtrVhTffO79rNkGk/dev"
+    SCRIPT_URL: "https://script.google.com/macros/s/AKfycbx2OzpxdiOZQ2ZXR3hnwAsZ13W0NiEMDuiLyZpxZGEt3nnzawvFeA05zRBso-pc4OTJ/exec"
 };
 // ==========================================
 // AUTO FAVICON INJECTOR (รูปตัว G)
