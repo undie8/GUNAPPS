@@ -14,6 +14,11 @@
         if (sessionStorage.getItem('gbase_unlocked') !== 'true') {
             window.location.href = 'index.html';
         }
+        // Auto Clean URL (Hide .html)
+        if (window.location.pathname.endsWith('.html')) {
+            var newUrl = window.location.pathname.replace('.html', '');
+            window.history.replaceState(null, '', newUrl);
+        }
     </script>
 
     <style>
@@ -36,6 +41,7 @@
         
         .custom-checkbox { width: 18px; height: 18px; accent-color: #ef4444; cursor: pointer; }
         .btn-delete-selected { background: #ef4444; color: white; font-weight: bold; padding: 6px 12px; border-radius: 8px; font-size: 12px; display: none; transition: 0.2s; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.5); }
+        .btn-delete-selected:active { transform: scale(0.95); }
     </style>
 </head>
 <body>
@@ -117,14 +123,15 @@
         let chartInstance = null;
 
         window.onload = function() {
-            // วันที่ไทย
+            // ตั้งค่าวันที่ไทย
             const d = new Date();
             const dateOpts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
             document.getElementById('bigDateDisplay').innerText = d.toLocaleDateString('th-TH', dateOpts);
             
+            // ตั้งค่า Date Picker เป็นวันนี้
             document.getElementById('workoutDate').valueAsDate = new Date();
             
-            // โหลด Cache
+            // โหลดข้อมูลจาก Cache ก่อนเพื่อความเร็ว
             const cachedData = localStorage.getItem(CACHE_KEY);
             if (cachedData) {
                 try {
@@ -138,12 +145,10 @@
             }
         }
 
-        // ✅ ฟังก์ชันดึงวันที่แบบปลอดภัย (แก้บั๊ก Timezone)
+        // ✅ ฟังก์ชันแก้ Timezone (แปลง UTC เป็น Local Date String)
         function getSafeDateString(dateInput) {
-            // ถ้าเป็น Date Object ให้แปลงโดยใช้เวลาท้องถิ่น (ไม่เอา UTC)
             if (!dateInput) return "";
             const d = new Date(dateInput);
-            // เทคนิค: ใช้ offset เพื่อปรับให้เป็นเวลาท้องถิ่นก่อนตัด string
             const offset = d.getTimezoneOffset() * 60000;
             const localDate = new Date(d.getTime() - offset);
             return localDate.toISOString().split('T')[0];
@@ -155,7 +160,7 @@
             try {
                 if (typeof CONFIG === 'undefined' || !CONFIG.SCRIPT_URL) return;
                 
-                // ✅ Cache Busting: เพิ่มเลขสุ่มและ no-store
+                // ✅ Cache Busting: สุ่มเลขเพื่อบังคับโหลดใหม่
                 const cacheBuster = new Date().getTime() + '-' + Math.random();
                 const res = await fetch(`${CONFIG.SCRIPT_URL}?get=fitnessData&v=${cacheBuster}`, {
                     method: 'GET',
@@ -184,14 +189,13 @@
             else { el.classList.remove('syncing'); txt.innerText = "Updated"; setTimeout(() => { el.classList.add('hidden'); }, 2000); }
         }
 
-        // ✅ แก้ไข: การเปรียบเทียบวันที่ (ใช้ getSafeDateString)
         function renderWorkouts() {
             const selectedDateStr = document.getElementById('workoutDate').value; // yyyy-mm-dd
             const list = document.getElementById('workoutList');
             list.innerHTML = '';
             
             const todayWorkouts = (globalData.workouts || []).filter(w => {
-                // แปลงวันที่จากฐานข้อมูลให้เป็นเวลาท้องถิ่นก่อนเทียบ
+                // เทียบวันที่แบบปลอดภัย
                 return getSafeDateString(w.date) === selectedDateStr;
             });
 
@@ -224,10 +228,12 @@
             
             if (formValues && formValues[0]) {
                 document.getElementById('loader').style.display = 'flex';
-                // Save to server
+                // ส่งข้อมูล
                 await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'addWorkout', date: date, exercise: formValues[0], sets: formValues[1] || '-' }) });
                 
-                // Force fetch new data immediately
+                // ✅ หน่วงเวลา 1.5 วินาที ให้ Sheet เขียนเสร็จ
+                await new Promise(r => setTimeout(r, 1500));
+                
                 await fetchData(true);
                 document.getElementById('loader').style.display = 'none';
             }
@@ -235,13 +241,16 @@
 
         async function toggleStatus(idx, currentStatus) {
             const newStatus = currentStatus === 'Done' ? 'Pending' : 'Done';
-            // Optimistic update
+            // Optimistic update (แก้หน้าจอเลยไม่ต้องรอ)
             const item = globalData.workouts.find(w => w.rowIndex === idx);
             if(item) item.status = newStatus;
             renderWorkouts();
             
             showSyncStatus(true);
             await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'toggleWorkout', rowIndex: idx, status: newStatus }) });
+            
+            // ✅ หน่วงเวลาเล็กน้อย
+            await new Promise(r => setTimeout(r, 1000));
             showSyncStatus(false);
         }
 
@@ -263,7 +272,6 @@
             let html = '';
             for (let i = weights.length - 1; i >= 0; i--) {
                 const w = weights[i];
-                // แปลงวันที่สำหรับโชว์
                 const d = new Date(w.date);
                 
                 let diffHtml = '';
@@ -327,6 +335,10 @@
                     method: 'POST', 
                     body: JSON.stringify({ action: 'deleteBatchWeight', indexes: selected }) 
                 });
+                
+                // ✅ หน่วงเวลา 1.5 วินาที
+                await new Promise(r => setTimeout(r, 1500));
+                
                 fetchData(true);
                 document.getElementById('loader').style.display = 'none';
             }
@@ -336,8 +348,13 @@
             const val = document.getElementById('newWeight').value;
             if(!val) return;
             document.getElementById('loader').style.display = 'flex';
+            
             await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'addWeight', weight: val }) });
             document.getElementById('newWeight').value = '';
+            
+            // ✅ หน่วงเวลา 1.5 วินาที
+            await new Promise(r => setTimeout(r, 1500));
+            
             fetchData(true);
             document.getElementById('loader').style.display = 'none';
         }
