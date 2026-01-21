@@ -458,17 +458,39 @@
 function renderDebtList(month) {
     try {
         const list = (globalData.transactions || []).filter(t => t.month === month);
-        const unpaidList = list.filter(t => (safeNum(t.paid) < parseFloat(safeNum(t.total).toFixed(2))));
-        const paidList = list.filter(t => (safeNum(t.paid) >= parseFloat(safeNum(t.total).toFixed(2))));
+        const isPaidCheck = (t) => { 
+            const total = parseFloat(safeNum(t.total).toFixed(2)); 
+            const paid = parseFloat(safeNum(t.paid).toFixed(2)); 
+            return paid >= total; 
+        };
+        
+        let unpaidList = list.filter(t => !isPaidCheck(t));
+        const paidList = list.filter(t => isPaidCheck(t));
 
-        const container = document.getElementById('debtList');
-        if (!container) return;
+        // --- 🟢 ส่วนที่แก้ไข: เรียงลำดับตาม ปี-เดือน แล้วตามด้วย วันที่ 🟢 ---
+        unpaidList.sort((a, b) => {
+            const getFullDateKey = (item) => {
+                // 1. ดึงปี-เดือน จาก payMonth (เช่น "2026-01") ถ้าไม่มีใช้เดือนที่บันทึก
+                const ym = item.payMonth || item.month || "0000-00";
+                
+                // 2. ดึงเฉพาะตัวเลขวันที่จาก dueDate (เช่น "31 มกราคม" ดึงออกมาแค่ "31")
+                // และเติม 0 ข้างหน้าให้เป็น 2 หลักเสมอ (เช่น "2" กลายเป็น "02")
+                const d = safeStr(item.dueDate).replace(/\D/g, '').padStart(2, '0') || "00";
+                
+                // 3. รวมร่างเป็น "2026-01-31" เพื่อใช้เรียงลำดับแบบข้อความ (String Comparison)
+                return ym + "-" + d;
+            };
 
-        container.innerHTML = [...unpaidList, ...paidList].map(t => {
+            const keyA = getFullDateKey(a);
+            const keyB = getFullDateKey(b);
+            
+            return keyA.localeCompare(keyB);
+        });
+        // -----------------------------------------------------------
+
+        document.getElementById('debtList').innerHTML = [...unpaidList, ...paidList].map(t => {
             const total = safeNum(t.total); 
-            const isPaid = (safeNum(t.paid) >= parseFloat(total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}).replace(/,/g, '')));
-
-            // ดึงค่าวันที่ที่เซิร์ฟเวอร์ส่งมาให้แล้ว
+            const isPaid = (safeNum(t.paid) >= parseFloat(total.toFixed(2)));
             let dueDisplay = t.dueDate || "ไม่ระบุ";
 
             return `<div class="card-debt mb-1 ${isPaid ? 'paid' : ''} shadow-md flex justify-between items-center px-3 py-2">
