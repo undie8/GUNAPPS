@@ -9,10 +9,8 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body class="bg-slate-900 text-slate-200 p-4 font-sans">
-
     <div class="max-w-md mx-auto">
         <h1 class="text-2xl font-bold text-green-500 mb-6">📸 PHOTO LOG</h1>
-
         <div class="bg-slate-800 p-4 rounded-2xl mb-6 shadow-xl border border-white/5">
             <input type="date" id="photoDate" class="w-full bg-slate-700 p-2 rounded mb-4 outline-none text-white">
             <input type="file" id="photoInput" accept="image/*" class="text-sm mb-4 block w-full text-slate-400">
@@ -20,14 +18,12 @@
                 อัปโหลดรูปภาพ
             </button>
         </div>
-
         <div id="galleryList" class="grid grid-cols-1 gap-4">
             <p class="text-center text-slate-500 italic py-10">กำลังโหลดรูปภาพ...</p>
         </div>
     </div>
 
     <script>
-        // แก้บัค Unexpected token 'G': ระบุพารามิเตอร์ให้ชัดเจน
         const API_URL = CONFIG.SCRIPT_URL;
 
         window.onload = () => {
@@ -37,7 +33,7 @@
 
         async function loadGallery() {
             try {
-                // ส่ง ?get=gallery เพื่อให้ MainRouter ส่ง JSON กลับมา (ไม่ใช่ Text)
+                // แก้บัค 'G' is not valid JSON โดยระบุ ?get=gallery
                 const res = await fetch(`${API_URL}?get=gallery&t=${new Date().getTime()}`);
                 const data = await res.json();
                 const list = document.getElementById('galleryList');
@@ -52,13 +48,13 @@
                     const d = img.date ? new Date(img.date).toLocaleDateString('th-TH') : 'ไม่ระบุวันที่';
                     list.innerHTML += `
                         <div class="bg-slate-800 rounded-2xl overflow-hidden shadow-lg border border-white/5">
-                            <img src="${img.url}" class="w-full h-auto" loading="lazy" onerror="this.src='https://placehold.co/400x300?text=Error+Loading+Image'">
+                            <img src="${img.url}" class="w-full h-auto" loading="lazy">
                             <div class="p-3 text-sm font-bold text-slate-400">${d}</div>
                         </div>`;
                 });
             } catch (e) {
                 console.error("Load Error:", e);
-                document.getElementById('galleryList').innerHTML = '<p class="text-center text-red-400 py-10 font-bold">ไม่สามารถดึงข้อมูลได้</p>';
+                document.getElementById('galleryList').innerHTML = '<p class="text-center text-red-400 py-10">ไม่สามารถโหลดข้อมูลได้</p>';
             }
         }
 
@@ -70,14 +66,13 @@
             if (fileInput.files.length === 0) return Swal.fire('แจ้งเตือน', 'กรุณาเลือกรูปก่อนครับ', 'warning');
 
             btn.disabled = true;
-            btn.innerText = 'กำลังประมวลผลรูปภาพ...';
+            btn.innerText = 'กำลังอัปโหลด...';
 
             const file = fileInput.files[0];
             const reader = new FileReader();
             
             reader.onload = async (e) => {
                 try {
-                    btn.innerText = 'กำลังส่งข้อมูลไปยัง Server...';
                     const response = await fetch(API_URL, {
                         method: 'POST',
                         body: JSON.stringify({
@@ -86,33 +81,21 @@
                             image: e.target.result
                         })
                     });
-                    
                     const result = await response.json();
-                    
                     if (result.status === 'success') {
                         await Swal.fire('สำเร็จ', 'บันทึกรูปภาพเรียบร้อย', 'success');
                         fileInput.value = '';
                         loadGallery();
-                    } else {
-                        throw new Error(result.message);
-                    }
+                    } else { throw new Error(result.message); }
                 } catch (err) {
-                    console.error("Upload Error:", err);
                     Swal.fire('เกิดข้อผิดพลาด', err.message, 'error');
                 } finally {
                     btn.disabled = false;
                     btn.innerText = 'อัปโหลดรูปภาพ';
                 }
             };
-
-            reader.onerror = () => {
-                Swal.fire('Error', 'ไม่สามารถอ่านไฟล์รูปภาพได้', 'error');
-                btn.disabled = false;
-                btn.innerText = 'อัปโหลดรูปภาพ';
-            };
-
             reader.readAsDataURL(file);
-        }
+        } // ปิดฟังก์ชันให้ครบเพื่อแก้บัค SyntaxError
     </script>
 </body>
 </html>
