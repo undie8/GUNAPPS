@@ -38,10 +38,13 @@
 </head>
 <body class="text-slate-200 font-sans min-h-screen pb-24">
 
-    <div class="fixed top-0 left-0 right-0 bg-slate-900/95 backdrop-blur-md z-50 border-b border-slate-800 h-16 shadow-lg flex items-center justify-center">
+    <div class="fixed top-0 left-0 right-0 bg-slate-900/95 backdrop-blur-md z-50 border-b border-slate-800 h-16 shadow-lg flex items-center justify-center px-4">
         <div class="absolute left-4">
-            <button onclick="window.location.href='index'" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-800 text-slate-400 hover:text-white transition shadow-md border border-slate-700">
-                <i class="fas fa-arrow-left text-lg"></i>
+            <button onclick="window.location.href='index'" class="flex items-center text-slate-400 hover:text-white transition">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                <span class="text-xs font-bold uppercase tracking-wider">Back</span>
             </button>
         </div>
         <h1 class="text-xl font-black bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent tracking-widest uppercase drop-shadow-sm">
@@ -83,7 +86,6 @@
         </div>
 
         <div id="sectionPhoto" class="hidden space-y-6">
-            
             <div class="glass-panel p-3 rounded-2xl border-dashed border-2 border-slate-700 hover:border-slate-500 transition group relative overflow-hidden">
                 <input type="file" id="photoInput" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="previewUpload()">
                 <div id="uploadPlaceholder" class="flex items-center justify-center gap-3 py-1">
@@ -119,6 +121,7 @@
     <script>
         const API_URL = CONFIG.SCRIPT_URL;
         const CACHE_KEY = 'iron_log_data';
+        const TAB_KEY = 'iron_log_active_tab'; // 🟢 Key สำหรับจำ Tab
         let globalWeights = [];
         let globalGallery = [];
         let chartInstance = null;
@@ -138,14 +141,16 @@
         window.onload = function() {
             updateHeaderDate();
             const today = getLocalISODate();
-            const last30Days = getLocalISODate(-30); // Default 30 วันย้อนหลัง
+            const last30Days = getLocalISODate(-30);
 
             document.getElementById('weightDate').value = today;
             document.getElementById('photoDate').value = today;
-            
-            // 🟢 Set Default Date Range
             document.getElementById('galleryStart').value = last30Days;
             document.getElementById('galleryEnd').value = today;
+
+            // 🟢 เรียกคืน Tab ล่าสุด
+            const lastTab = localStorage.getItem(TAB_KEY) || 'weight';
+            switchTab(lastTab);
 
             const cached = localStorage.getItem(CACHE_KEY);
             if (cached) { try { processAndRender(JSON.parse(cached)); fetchData(true); } catch(e) { fetchData(false); } } else { fetchData(false); }
@@ -165,11 +170,16 @@
 
         function processAndRender(data) {
             globalWeights = data.weights || [];
-            globalGallery = data.gallery || []; // เก็บข้อมูล Gallery ทั้งหมดไว้ก่อน
+            globalGallery = data.gallery || [];
             
-            renderWeightList(); 
-            renderChart(); 
-            renderGallery(); // เรียก Render Gallery (จะไปใช้ Filter ภายในฟังก์ชัน)
+            // เรียก Render ใหม่เพื่อให้ UI อัปเดตตาม Tab ปัจจุบัน
+            const currentTab = localStorage.getItem(TAB_KEY) || 'weight';
+            if(currentTab === 'weight') {
+                renderWeightList(); 
+                renderChart();
+            } else {
+                renderGallery();
+            }
 
             if (globalWeights.length > 0) {
                 const latest = globalWeights[0];
@@ -210,7 +220,6 @@
             });
         }
 
-        // 🟢 ฟังก์ชัน Render Gallery ใหม่ (Sort + Filter + AutoScroll)
         function renderGallery() {
             const grid = document.getElementById('galleryGrid'); 
             grid.innerHTML = '';
@@ -219,21 +228,17 @@
             const endStr = document.getElementById('galleryEnd').value;
             const startDate = startStr ? new Date(startStr) : new Date('2000-01-01');
             const endDate = endStr ? new Date(endStr) : new Date();
-            endDate.setHours(23, 59, 59, 999); // สิ้นสุดวัน
+            endDate.setHours(23, 59, 59, 999);
 
-            // 1. กรองวันที่
             let filtered = globalGallery.filter(img => {
                 const d = new Date(img.date);
                 return d >= startDate && d <= endDate;
             });
 
-            // 2. เรียงลำดับ (เก่า -> ใหม่)
+            // เรียงเก่า -> ใหม่
             filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-            if (filtered.length === 0) { 
-                grid.innerHTML = '<div class="w-full text-center text-slate-600 py-10 text-sm">ไม่พบรูปภาพในช่วงเวลานี้</div>'; 
-                return; 
-            }
+            if (filtered.length === 0) { grid.innerHTML = '<div class="w-full text-center text-slate-600 py-10 text-sm">ไม่พบรูปภาพในช่วงเวลานี้</div>'; return; }
 
             filtered.forEach(img => {
                 const weightTag = img.weight ? `<div class="absolute top-3 right-3 bg-black/70 backdrop-blur-md px-2 py-1 rounded-lg text-xs font-bold text-white border border-white/10 shadow-lg"><i class="fas fa-weight-hanging mr-1 text-green-400"></i>${img.weight}</div>` : '';
@@ -255,11 +260,8 @@
                     </div>`;
             });
 
-            // 3. Auto Scroll to Right (Newest)
-            // ต้องรอให้ DOM Render เสร็จก่อนนิดนึง
-            setTimeout(() => {
-                grid.scrollLeft = grid.scrollWidth;
-            }, 100);
+            // Auto Scroll to Last Image
+            setTimeout(() => { grid.scrollLeft = grid.scrollWidth; }, 100);
         }
 
         function renderChart() {
@@ -271,7 +273,11 @@
             chartInstance = new Chart(ctx, { type: 'line', data: { labels: labels, datasets: [{ label: 'Weight', data: values, borderColor: '#f97316', borderWidth: 2, backgroundColor: (context) => { const ctx = context.chart.ctx; const gradient = ctx.createLinearGradient(0, 0, 0, 300); gradient.addColorStop(0, 'rgba(249, 115, 22, 0.4)'); gradient.addColorStop(1, 'rgba(249, 115, 22, 0.0)'); return gradient; }, fill: true, pointBackgroundColor: '#fff', pointBorderColor: '#f97316', pointRadius: 3, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', font:{size:10} } }, x: { grid: { display: false }, ticks: { color: '#94a3b8', font:{size:10} } } } } });
         }
 
+        // 🟢 ฟังก์ชัน Switch Tab พร้อมบันทึกสถานะ
         function switchTab(tab) {
+            // บันทึก Tab ล่าสุด
+            localStorage.setItem(TAB_KEY, tab);
+
             const wSec = document.getElementById('sectionWeight'); const pSec = document.getElementById('sectionPhoto');
             const wTab = document.getElementById('tabWeight'); const pTab = document.getElementById('tabPhoto');
             if (tab === 'weight') {
@@ -283,8 +289,7 @@
                 wSec.classList.add('hidden'); pSec.classList.remove('hidden');
                 pTab.className = "flex-1 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg bg-slate-700 text-white";
                 wTab.className = "flex-1 py-2.5 rounded-xl text-sm font-bold transition-all text-slate-400 hover:text-slate-200";
-                // เรียก Render Gallery อีกครั้งเพื่อให้ Scroll ทำงานตอนสลับ Tab
-                renderGallery();
+                renderGallery(); // เรียก Render Gallery เพื่อ Scroll
             }
         }
 
@@ -296,7 +301,7 @@
                     document.getElementById('imgPreview').src = e.target.result; 
                     document.getElementById('uploadPlaceholder').classList.add('hidden'); 
                     document.getElementById('uploadPreview').classList.remove('hidden'); 
-                    input.classList.add('hidden');
+                    input.classList.add('hidden'); 
                     autoFillWeight();
                 }; 
                 reader.readAsDataURL(input.files[0]); 
