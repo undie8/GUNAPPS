@@ -458,14 +458,18 @@
 function renderDebtList(month) {
     try {
         const list = (globalData.transactions || []).filter(t => t.month === month);
-        // ... (ส่วน unpaid/paid list คงเดิม) ...
+        const unpaidList = list.filter(t => (safeNum(t.paid) < parseFloat(safeNum(t.total).toFixed(2))));
+        const paidList = list.filter(t => (safeNum(t.paid) >= parseFloat(safeNum(t.total).toFixed(2))));
 
-        document.getElementById('debtList').innerHTML = [...unpaidList, ...paidList].map(t => {
+        const container = document.getElementById('debtList');
+        if (!container) return;
+
+        container.innerHTML = [...unpaidList, ...paidList].map(t => {
             const total = safeNum(t.total); 
-            const isPaid = (safeNum(t.paid) >= parseFloat(total.toFixed(2)));
+            const isPaid = (safeNum(t.paid) >= parseFloat(total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}).replace(/,/g, '')));
 
-            // --- 🟢 ดึงค่า dueDate มาแสดงตรงๆ ไม่ต้องคำนวณเพิ่ม 🟢 ---
-            let dueDisplay = t.dueDate || "ไม่ระบุวันที่"; 
+            // ดึงค่าวันที่ที่เซิร์ฟเวอร์ส่งมาให้แล้ว
+            let dueDisplay = t.dueDate || "ไม่ระบุ";
 
             return `<div class="card-debt mb-1 ${isPaid ? 'paid' : ''} shadow-md flex justify-between items-center px-3 py-2">
                 <div class="flex-1">
@@ -483,12 +487,14 @@ function renderDebtList(month) {
                     </div>
                 </div>
                 <div class="flex items-center gap-3 ml-3">
-                    <button onclick="payPrompt(${t.rowIndex},'${total}','${t.paid}','${safeEsc(t.card)}',${isPaid})" class="${isPaid ? 'bg-blue-600' : 'bg-green-600'} text-white rounded-lg font-bold">${isPaid ? '✔' : 'จ่าย'}</button>
+                    <button onclick="payPrompt(${t.rowIndex},'${total}','${t.paid}','${safeEsc(t.card)}',${isPaid})" class="${isPaid ? 'bg-blue-600' : 'bg-green-600'} text-white px-3 py-1 text-[10px] flex items-center justify-center rounded-lg font-bold shadow-sm">${isPaid ? '✔' : 'จ่าย'}</button>
                     <input type="checkbox" class="debt-cb custom-checkbox" value="${t.rowIndex}" onchange="updateDelBtn('debt-cb', 'btnDelSelectedDebt')">
                 </div>
             </div>`;
         }).join('');
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+        console.error("renderDebtList Error:", e); 
+    }
 }
         async function payPrompt(idx, tot, current, card, isEdit = false) {
             const currentVal = safeNum(current); const totalVal = safeNum(tot); const remaining = Math.max(0, totalVal - currentVal);
