@@ -106,14 +106,15 @@
                     canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
                     
                     try {
-                        const res = await fetch(API_URL, {
-                            method: 'POST',
-                            body: JSON.stringify({
-                                action: 'uploadPhoto',
-                                date: document.getElementById('photoDate').value,
-                                image: canvas.toDataURL('image/jpeg', 0.8)
-                            })
-                        });
+                        const res = await fetch(API_URL + '?t=' + new Date().getTime(), {
+    method: 'POST',
+    mode: 'no-cors', // ลองเพิ่มโหมดนี้ถ้าติดปัญหาเรื่องสิทธิ์การส่ง (CORS)
+    body: JSON.stringify({
+        action: 'uploadPhoto',
+        date: document.getElementById('photoDate').value,
+        image: canvas.toDataURL('image/jpeg', 0.8)
+    })
+});
                         const result = await res.json();
                         if (result.status === 'error') throw new Error(result.message);
                         
