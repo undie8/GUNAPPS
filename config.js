@@ -31,3 +31,11 @@ const CONFIG = {
     // ยัดรูปตัว G ใส่เข้าไป
     link.href = iconUrl;
 })();
+(function() {
+    const currentTitle = document.title;
+    // ถ้าชื่อเดิมยังไม่มีคำว่า GBase ให้เติมเข้าไปข้างหน้า
+    if (!currentTitle.includes("GBase")) {
+        // ดึงชื่อแอปเดิมมา แล้วต่อท้าย GBase - 
+        document.title = "GBase - " + currentTitle;
+    }
+})();
