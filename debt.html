@@ -455,11 +455,9 @@
             showLoader(true);
             try { await fetch(CONFIG.SCRIPT_URL, { method:'POST', body: JSON.stringify({ action:'addIncome', month: fullDate, type, amount: val }) }); document.getElementById('incVal').value = ""; document.getElementById('incDay').value = ""; fetchData(false); } catch (e) { showLoader(false); }
         }
- function renderDebtList(month) {
+function renderDebtList(month) {
     try {
-        // กรองเฉพาะรายการของเดือนที่เลือก
         const list = (globalData.transactions || []).filter(t => t.month === month);
-        
         const isPaidCheck = (t) => { 
             const total = parseFloat(safeNum(t.total).toFixed(2)); 
             const paid = parseFloat(safeNum(t.paid).toFixed(2)); 
@@ -473,24 +471,8 @@
             const total = safeNum(t.total); 
             const isPaid = (safeNum(t.paid) >= parseFloat(total.toFixed(2)));
 
-            // --- 🟢 ดึงข้อมูลเดือนจาก payMonth (คอลัมน์ G) มาแสดงตรงๆ 🟢 ---
-            let dayNum = safeStr(t.dueDate).replace(/[^0-9]/g, '').padStart(2, '0') || "00";
-            
-            // ดึงค่าจาก t.payMonth ที่บันทึกไว้ใน Sheets (เช่น 2026-02)
-            let monthName = "";
-            let targetMonth = t.payMonth || t.month; // ถ้า payMonth ว่าง ให้ใช้ month ปกติ
-
-            if (targetMonth && targetMonth.includes('-')) {
-                // แยกเลขเดือนออกมา (เช่น "02") แล้วแปลงเป็นตัวเลขเพื่อดึงชื่อเดือนจาก Array
-                const mIdx = parseInt(targetMonth.split('-')[1]) - 1;
-                // ตรวจสอบว่า monthsTh มีอยู่จริงและ index ถูกต้อง
-                if (typeof monthsTh !== 'undefined' && monthsTh[mIdx]) {
-                    monthName = monthsTh[mIdx];
-                }
-            }
-            
-            let dueDisplay = monthName ? `${dayNum} ${monthName}` : dayNum;
-            // --------------------------------------------------------
+            // ดึงค่าที่ Server แปลงมาให้แล้วไปแสดงผลได้เลย
+            let dueDisplay = t.dueDate || "รอกำหนดจ่าย";
 
             return `<div class="card-debt mb-1 ${isPaid ? 'paid' : ''} shadow-md flex justify-between items-center px-3 py-2">
                 <div class="flex-1">
