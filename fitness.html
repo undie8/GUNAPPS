@@ -210,22 +210,32 @@
             });
         }
 
+       // --- GALLERY: แก้รูปแตก (Final Fix) ---
         function renderGallery(gallery) {
             const grid = document.getElementById('galleryGrid');
             grid.innerHTML = '';
-            if (gallery.length === 0) { grid.innerHTML = '<div class="text-center text-slate-600 py-10">ยังไม่มีรูปภาพ</div>'; return; }
+            
+            if (gallery.length === 0) {
+                grid.innerHTML = '<div class="text-center text-slate-600 py-10">ยังไม่มีรูปภาพ</div>';
+                return;
+            }
 
             gallery.forEach(img => {
                 const weightTag = img.weight ? `<div class="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-lg text-xs font-bold text-white border border-white/10"><i class="fas fa-weight-hanging mr-1 text-green-400"></i>${img.weight}</div>` : '';
+                
                 grid.innerHTML += `
                     <div class="glass-panel rounded-2xl overflow-hidden relative group">
                         <div class="relative min-h-[250px] bg-slate-800">
-                             <img src="${img.url}" class="w-full h-auto object-cover" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.src='https://placehold.co/600x400?text=Image+Error'">
+                             <img src="${img.url}" 
+                                  class="w-full h-auto object-cover" 
+                                  loading="lazy" 
+                                  referrerpolicy="no-referrer"
+                                  onerror="this.src='https://placehold.co/600x400?text=Image+Error'">
                              ${weightTag}
                         </div>
                         <div class="p-3 bg-slate-900/80 backdrop-blur flex justify-between items-center">
                             <span class="text-xs text-slate-400 font-bold">${formatDate(img.date)}</span>
-                            <button class="text-slate-500 hover:text-red-500 transition"><i class="fas fa-trash"></i></button>
+                            <button onclick="deletePhoto('${img.date}')" class="text-slate-500 hover:text-red-500 transition"><i class="fas fa-trash"></i></button>
                         </div>
                     </div>`;
             });
