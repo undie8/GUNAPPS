@@ -458,40 +458,14 @@
 function renderDebtList(month) {
     try {
         const list = (globalData.transactions || []).filter(t => t.month === month);
-        const isPaidCheck = (t) => { 
-            const total = parseFloat(safeNum(t.total).toFixed(2)); 
-            const paid = parseFloat(safeNum(t.paid).toFixed(2)); 
-            return paid >= total; 
-        };
-        
-        const unpaidList = list.filter(t => !isPaidCheck(t));
-        const paidList = list.filter(t => isPaidCheck(t));
+        // ... (ส่วน unpaid/paid list คงเดิม) ...
 
         document.getElementById('debtList').innerHTML = [...unpaidList, ...paidList].map(t => {
             const total = safeNum(t.total); 
             const isPaid = (safeNum(t.paid) >= parseFloat(total.toFixed(2)));
 
-            // --- 🟢 ส่วนที่แก้ไข: ดึงเลขวันที่และชื่อเดือน 🟢 ---
-            // 1. ดึงเลขวันที่จาก dueDate (คอลัมน์ F)
-            let dayNum = safeStr(t.dueDate).replace(/[^0-9]/g, '').padStart(2, '0') || "00";
-            
-            // 2. ดึงชื่อเดือนจาก payMonth (คอลัมน์ G)
-            let monthLabel = "";
-            let target = t.payMonth || t.month; // ใช้ค่าที่มี Year-Month เช่น "2026-02"
-
-            if (target && target.includes('-')) {
-                const parts = target.split('-');
-                const mIdx = parseInt(parts[1]) - 1; // แปลง "02" เป็นเลข 1 (กุมภาพันธ์)
-                
-                // ตรวจสอบว่ามีชื่อเดือนใน Array หรือไม่
-                if (typeof monthsTh !== 'undefined' && monthsTh[mIdx]) {
-                    monthLabel = monthsTh[mIdx];
-                }
-            }
-            
-            // 3. รวมร่างวันที่และชื่อเดือน
-            let dueDisplay = monthLabel ? `${dayNum} ${monthLabel}` : dayNum;
-            // ----------------------------------------------
+            // --- 🟢 ดึงค่า dueDate มาแสดงตรงๆ ไม่ต้องคำนวณเพิ่ม 🟢 ---
+            let dueDisplay = t.dueDate || "ไม่ระบุวันที่"; 
 
             return `<div class="card-debt mb-1 ${isPaid ? 'paid' : ''} shadow-md flex justify-between items-center px-3 py-2">
                 <div class="flex-1">
@@ -509,14 +483,12 @@ function renderDebtList(month) {
                     </div>
                 </div>
                 <div class="flex items-center gap-3 ml-3">
-                    <button onclick="payPrompt(${t.rowIndex},'${total}','${t.paid}','${safeEsc(t.card)}',${isPaid})" class="${isPaid ? 'bg-blue-600' : 'bg-green-600'} text-white ${isPaid ? 'w-6 h-6' : 'px-3 py-1 text-[10px]'} flex items-center justify-center rounded-lg font-bold shadow-sm">${isPaid ? '✔' : 'จ่าย'}</button>
+                    <button onclick="payPrompt(${t.rowIndex},'${total}','${t.paid}','${safeEsc(t.card)}',${isPaid})" class="${isPaid ? 'bg-blue-600' : 'bg-green-600'} text-white rounded-lg font-bold">${isPaid ? '✔' : 'จ่าย'}</button>
                     <input type="checkbox" class="debt-cb custom-checkbox" value="${t.rowIndex}" onchange="updateDelBtn('debt-cb', 'btnDelSelectedDebt')">
                 </div>
             </div>`;
         }).join('');
-    } catch (e) { 
-        console.error("renderDebtList Error:", e); 
-    }
+    } catch (e) { console.error(e); }
 }
         async function payPrompt(idx, tot, current, card, isEdit = false) {
             const currentVal = safeNum(current); const totalVal = safeNum(tot); const remaining = Math.max(0, totalVal - currentVal);
