@@ -33,7 +33,6 @@
         .border-inc { border-color: #22c55e; }
         .manage-item { display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.5); padding: 10px 15px; border-radius: 10px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.05); }
         
-        /* ปุ่มบันทึกขนาดใหญ่ */
         .btn-save-large { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; font-weight: bold; font-size: 1.2rem; display: flex; items-center; justify-content: center; gap: 8px; width: 100%; padding: 15px; border-radius: 1rem; margin-top: 10px; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.5); cursor: pointer; transition: 0.2s; }
         .btn-save-large:active { transform: scale(0.98); box-shadow: none; }
         .btn-save-large.edit-mode { background: linear-gradient(135deg, #eab308, #ca8a04); box-shadow: 0 4px 6px -1px rgba(234, 179, 8, 0.5); }
@@ -136,9 +135,7 @@
         let globalData = [];
         let globalCats = [];
         let chartObj = null;
-        
-        // 🟢 Variables for Edit Mode
-        let editingRowIndex = null; // เก็บเลขบรรทัดที่กำลังแก้ (null = โหมดปกติ)
+        let editingRowIndex = null;
 
         const DEFAULT_CATS = [
             {type:'expense', icon:'🍔', name:'อาหาร'},
@@ -170,7 +167,6 @@
             } catch(e) {}
         }
 
-        // --- RENDER ---
         function renderCategories() {
             const grid = document.getElementById('catGrid'); grid.innerHTML = '';
             const filtered = globalCats.filter(c => c.type === currentType);
@@ -180,14 +176,9 @@
                 grid.innerHTML += `<div class="cat-btn ${isActive}" onclick="selectCat('${c.name}', this)"><span class="text-xl mb-1">${c.icon}</span><span class="text-[10px] text-slate-300">${c.name}</span></div>`;
             });
             if(!document.querySelector('.cat-btn.selected') && filtered.length > 0) {
-                // ถ้าเป็นโหมดแก้ไข ให้เลือกหมวดเดิม
                 if(editingRowIndex) {
                     const found = [...grid.children].find(el => el.innerText.includes(currentCat));
-                    if(found) {
-                        document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
-                        found.classList.add('selected');
-                        return;
-                    }
+                    if(found) { document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected')); found.classList.add('selected'); return; }
                 }
                 grid.firstElementChild.classList.add('selected'); currentCat = filtered[0].name; 
             }
@@ -198,19 +189,51 @@
             return cat ? cat.icon : '📝';
         }
 
+        // 🟢 ส่วนที่แก้ไขใหม่ครับ (renderHistory)
         function renderHistory() {
-            const list = document.getElementById('historyList'); list.innerHTML = '';
-            if(globalData.length === 0) { list.innerHTML = '<p class="text-center text-slate-500 py-10">ว่างเปล่า</p>'; return; }
+            const list = document.getElementById('historyList'); 
+            list.innerHTML = '';
+            
+            if(globalData.length === 0) { 
+                list.innerHTML = '<p class="text-center text-slate-500 py-10">ว่างเปล่า</p>'; 
+                return; 
+            }
+
+            // คำนวณยอดรวมรายวัน
+            const dailyTotals = {};
+            globalData.forEach(item => {
+                const d = new Date(item.date);
+                const dateStr = `${d.getDate()} / ${d.getMonth()+1} / ${d.getFullYear()+543}`;
+                if (!dailyTotals[dateStr]) dailyTotals[dateStr] = 0;
+                const amt = parseFloat(item.amount);
+                if (item.type === 'expense') dailyTotals[dateStr] -= amt;
+                else dailyTotals[dateStr] += amt;
+            });
+
             let lastDate = '';
             globalData.forEach(item => {
-                const d = new Date(item.date); const dateStr = `${d.getDate()} / ${d.getMonth()+1} / ${d.getFullYear()+543}`;
-                if(dateStr !== lastDate) { list.innerHTML += `<div class="text-[10px] text-slate-500 font-bold mt-4 mb-2 pl-2 bg-slate-800/30 py-1 rounded">${dateStr}</div>`; lastDate = dateStr; }
+                const d = new Date(item.date); 
+                const dateStr = `${d.getDate()} / ${d.getMonth()+1} / ${d.getFullYear()+543}`;
+                
+                if(dateStr !== lastDate) { 
+                    const total = dailyTotals[dateStr];
+                    const totalColor = total >= 0 ? 'text-green-400' : 'text-red-400';
+                    const sign = total > 0 ? '+' : '';
+
+                    // Header วันที่แบบใหม่
+                    list.innerHTML += `
+                        <div class="flex justify-between items-end mt-6 mb-2 px-2 border-b border-slate-700/50 pb-1">
+                            <span class="text-lg font-bold text-white tracking-wide">${dateStr}</span>
+                            <span class="text-sm font-bold ${totalColor}">${sign}${total.toLocaleString()}</span>
+                        </div>`;
+                    lastDate = dateStr; 
+                }
+                
                 const isExp = item.type === 'expense';
                 const icon = getCatIcon(item.category);
                 
-                // 🟢 เพิ่มไอคอนและปุ่มแก้ไข
                 list.innerHTML += `
-                    <div class="transaction-item ${isExp?'border-exp':'border-inc'} bg-slate-800/50 p-3 rounded-r-xl mb-2 flex justify-between items-center shadow-sm">
+                    <div class="transaction-item ${isExp?'border-exp':'border-inc'} bg-slate-800/50 p-3 rounded-r-xl mb-2 flex justify-between items-center shadow-sm hover:bg-slate-800 transition">
                         <div class="flex items-center">
                             <div class="cat-icon-circle">${icon}</div>
                             <div>
@@ -220,90 +243,48 @@
                         </div>
                         <div class="flex items-center gap-3">
                             <div class="font-mono font-bold ${isExp?'text-red-400':'text-green-400'}">${isExp?'-':'+'}${parseFloat(item.amount).toLocaleString()}</div>
-                            
-                            <button onclick="editItem(${item.rowIndex})" class="w-8 h-8 rounded-full bg-slate-700 text-yellow-500 flex items-center justify-center hover:bg-slate-600">
-                                <i class="fas fa-pencil-alt text-xs"></i>
-                            </button>
-                            
-                            <button onclick="deleteItem(${item.rowIndex})" class="w-8 h-8 rounded-full bg-slate-700 text-red-400 flex items-center justify-center hover:bg-slate-600">
-                                <i class="fas fa-trash-alt text-xs"></i>
-                            </button>
+                            <button onclick="editItem(${item.rowIndex})" class="w-8 h-8 rounded-full bg-slate-700 text-yellow-500 flex items-center justify-center hover:bg-slate-600 transition"><i class="fas fa-pencil-alt text-xs"></i></button>
+                            <button onclick="deleteItem(${item.rowIndex})" class="w-8 h-8 rounded-full bg-slate-700 text-red-400 flex items-center justify-center hover:bg-slate-600 transition"><i class="fas fa-trash-alt text-xs"></i></button>
                         </div>
                     </div>`;
             });
         }
 
-        // --- 🟢 EDIT LOGIC ---
         function editItem(rowIndex) {
-            const item = globalData.find(i => i.rowIndex === rowIndex);
-            if(!item) return;
-
-            // 1. ตั้งค่า State ว่ากำลังแก้
+            const item = globalData.find(i => i.rowIndex === rowIndex); if(!item) return;
             editingRowIndex = rowIndex;
-            
-            // 2. ดึงข้อมูลมาใส่หน้าจอ
-            currentInput = String(item.amount);
-            document.getElementById('noteInput').value = item.note;
-            
-            // 3. เปลี่ยน Type และ Category
-            setType(item.type); // ฟังก์ชันนี้จะ render หมวดหมู่ใหม่
-            currentCat = item.category;
-            renderCategories(); // Render อีกรอบเพื่อ highlight หมวดที่ถูกต้อง
-            
-            updateDisplay();
-
-            // 4. เปลี่ยน UI ให้รู้ว่าแก้
+            currentInput = String(item.amount); document.getElementById('noteInput').value = item.note;
+            setType(item.type); currentCat = item.category; renderCategories(); updateDisplay();
             document.getElementById('editBadge').classList.remove('hidden');
-            const btn = document.getElementById('btnSave');
-            btn.classList.add('edit-mode');
-            btn.innerHTML = '<i class="fas fa-sync-alt"></i> <span>อัปเดตแก้ไข</span>';
-
-            // 5. สลับไปหน้าจดบันทึก
+            const btn = document.getElementById('btnSave'); btn.classList.add('edit-mode'); btn.innerHTML = '<i class="fas fa-sync-alt"></i> <span>อัปเดตแก้ไข</span>';
             switchTab('add');
         }
 
         function cancelEdit() {
-            editingRowIndex = null;
-            pressClear();
-            document.getElementById('noteInput').value = '';
+            editingRowIndex = null; pressClear(); document.getElementById('noteInput').value = '';
             document.getElementById('editBadge').classList.add('hidden');
-            const btn = document.getElementById('btnSave');
-            btn.classList.remove('edit-mode');
-            btn.innerHTML = '<i class="fas fa-check-circle"></i> <span>คำนวณและบันทึก</span>';
+            const btn = document.getElementById('btnSave'); btn.classList.remove('edit-mode'); btn.innerHTML = '<i class="fas fa-check-circle"></i> <span>คำนวณและบันทึก</span>';
         }
 
         async function saveTransaction() {
             const finalAmount = calculateResult();
             if(finalAmount <= 0) return Swal.fire({icon:'warning', title:'ยอดเงินต้องมากกว่า 0', toast:true, position:'top'});
-            
             document.getElementById('loader').style.display = 'flex';
-            
-            // 🟢 เช็คว่า บันทึกใหม่ หรือ แก้ไข
             const actionType = editingRowIndex ? 'editEasySpend' : 'addEasySpend';
             const extraParams = editingRowIndex ? { rowIndex: editingRowIndex } : {};
-
             try {
                 await fetch(CONFIG.SCRIPT_URL, {
                     method: 'POST',
                     body: JSON.stringify({
-                        action: actionType,
-                        ...extraParams, // ส่ง rowIndex ไปด้วยถ้าแก้ไข
+                        action: actionType, ...extraParams,
                         date: new Date().toISOString().split('T')[0],
-                        type: currentType,
-                        category: currentCat,
-                        amount: finalAmount,
-                        note: document.getElementById('noteInput').value
+                        type: currentType, category: currentCat, amount: finalAmount, note: document.getElementById('noteInput').value
                     })
                 });
-                
-                cancelEdit(); // Reset state
-                fetchData();
-                Swal.fire({icon:'success', title: editingRowIndex ? 'อัปเดตแล้ว' : 'บันทึกแล้ว', toast:true, position:'top', timer:1500, showConfirmButton:false});
-            } catch(e) { Swal.fire('Error', e.message, 'error'); } 
-            finally { document.getElementById('loader').style.display = 'none'; }
+                cancelEdit(); fetchData(); Swal.fire({icon:'success', title: editingRowIndex ? 'อัปเดตแล้ว' : 'บันทึกแล้ว', toast:true, position:'top', timer:1500, showConfirmButton:false});
+            } catch(e) { Swal.fire('Error', e.message, 'error'); } finally { document.getElementById('loader').style.display = 'none'; }
         }
 
-        // --- CALCULATOR ---
         function pressNum(n) { if(currentInput==='0' && n!=='.') currentInput=n; else if(n==='.' && currentInput.slice(-1)==='.') return; else currentInput+=n; updateDisplay(); }
         function pressOp(op) { const last=currentInput.slice(-1); if(['+','-','*','/'].includes(last)) currentInput=currentInput.slice(0,-1)+op; else currentInput+=op; updateDisplay(); }
         function pressDel() { currentInput=currentInput.slice(0,-1); if(currentInput==='') currentInput='0'; updateDisplay(); }
@@ -311,17 +292,11 @@
         function calculateResult() { try { if(/[^0-9+\-*/.]/.test(currentInput)) return 0; const r=new Function('return '+currentInput)(); return (!isFinite(r)||isNaN(r))?0:r; } catch(e){return 0;} }
         function updateDisplay() { let s=currentInput.replace(/\*/g,' × ').replace(/\//g,' ÷ ').replace(/\+/g,' + ').replace(/-/g,' - '); document.getElementById('amountDisplay').innerText=s; if(['+','-','*','/'].some(x=>currentInput.includes(x)) && !['+','-','*','/'].includes(currentInput.slice(-1))) { document.getElementById('calcPreview').innerText='= '+calculateResult().toLocaleString(undefined,{maximumFractionDigits:2}); } else { document.getElementById('calcPreview').innerText=''; } }
 
-        // --- COMMON ---
         function setType(type) {
-            currentType = type;
-            document.querySelectorAll('#view-add .type-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active');
-            const slider = document.getElementById('typeSlider');
-            if(type==='expense'){ slider.style.left='4px'; slider.classList.replace('income','expense'); } else{ slider.style.left='48%'; slider.classList.replace('expense','income'); }
-            // ถ้ากำลังแก้ ไม่ต้อง reset cat
-            if(!editingRowIndex) { currentCat = null; }
-            renderCategories();
+            currentType = type; document.querySelectorAll('#view-add .type-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active');
+            const slider = document.getElementById('typeSlider'); if(type==='expense'){ slider.style.left='4px'; slider.classList.replace('income','expense'); } else{ slider.style.left='48%'; slider.classList.replace('expense','income'); }
+            if(!editingRowIndex) { currentCat = null; } renderCategories();
         }
-        // ... (Functions อื่นๆ เหมือนเดิม: setManageType, selectCat, renderManageList, addCategory, deleteCategory) ...
         function setManageType(type) { manageType=type; document.querySelectorAll('#view-manage .type-btn').forEach(b=>b.classList.remove('active')); event.target.classList.add('active'); const s=document.getElementById('manageTypeSlider'); if(type==='expense'){s.style.left='4px';s.classList.replace('income','expense');}else{s.style.left='48%';s.classList.replace('expense','income');} renderManageList(); }
         function selectCat(name,el) { currentCat=name; document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('selected')); el.classList.add('selected'); }
         function renderManageList() { const l=document.getElementById('manageList'); l.innerHTML=''; globalCats.filter(c=>c.type===manageType).forEach(c=>{ l.innerHTML+=`<div class="manage-item"><div class="flex items-center gap-3"><span class="text-2xl">${c.icon}</span><span class="font-bold text-white">${c.name}</span></div><button onclick="deleteCategory('${c.rowIndex}')" class="text-slate-500 hover:text-red-500 p-2"><i class="fas fa-trash-alt"></i></button></div>`; }); }
